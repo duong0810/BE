@@ -202,7 +202,7 @@ export const spinVoucher = async (req, res) => {
     // Lấy voucher với ORDER BY RANDOM() để random thứ tự (PostgreSQL)
     const result = await pool.query(`
       SELECT * FROM Vouchers 
-      WHERE IsActive = 1 AND Probability IS NOT NULL AND Probability > 0
+      WHERE IsActive = true AND Probability IS NOT NULL AND Probability > 0
       ORDER BY RANDOM()
     `);
     const vouchers = result.rows;
