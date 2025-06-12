@@ -8,6 +8,8 @@ import { fileURLToPath } from "url";
 import cookieParser from 'cookie-parser';
 import { connectDB } from "./config.js";
 import voucherRoutes from "./routes/voucherRoutes.js";
+import healthRoutes from "./routes/healthRoutes.js";
+import settingsRoutes from "./routes/settingsRoutes.js";
 // import authRoutes from "./routes/authRoutes.js";
 import productRoutes from './routes/productRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
@@ -31,6 +33,8 @@ app.use(express.urlencoded({ limit: "20mb", extended: true }));
 
 // Sau đó mới khai báo các route
 app.use("/api/vouchers", voucherRoutes);
+app.use("/health", healthRoutes);
+app.use("/api/settings", settingsRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/uploads", uploadRoutes);
 
