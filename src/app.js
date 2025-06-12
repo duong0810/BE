@@ -1,4 +1,3 @@
-
 import dotenv from 'dotenv';
 dotenv.config();
 import express from "express";
@@ -10,7 +9,7 @@ import { connectDB } from "./config.js";
 import voucherRoutes from "./routes/voucherRoutes.js";
 import healthRoutes from "./routes/healthRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
-// import authRoutes from "./routes/authRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 import productRoutes from './routes/productRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 
@@ -20,10 +19,22 @@ const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 5000;
 
-
 const app = express();
 
-app.use(cors());
+// CORS configuration - MUST BE FIRST
+app.use(cors({
+  origin: [
+    'http://localhost:2999',  // FE port
+    'http://localhost:3000', 
+    'http://localhost:3001', 
+    'http://localhost:5173',
+    'http://localhost:5000'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with']
+}));
+
 app.use(cookieParser());
 app.use('/uploads', express.static('uploads'));
 
@@ -38,8 +49,8 @@ app.use("/api/settings", settingsRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/uploads", uploadRoutes);
 
-// // API auth
-// app.use("/api/auth", authRoutes);
+// API auth
+app.use("/api/auth", authRoutes);
 
 // Phục vụ tệp tĩnh từ thư mục public (chỉ cho trang login)
 app.use(express.static(path.join(__dirname, 'public')));
@@ -83,7 +94,8 @@ const startServer = async () => {
   try {
     await connectDB();
     app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+      console.log(`🚀 Server is running on port ${PORT}`);
+      console.log(`✅ CORS enabled for FE port 2999`);
     });
   } catch (error) {
     console.error("Failed to start server:", error);
