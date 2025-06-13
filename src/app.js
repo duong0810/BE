@@ -36,7 +36,7 @@ app.use(cors({
 }));
 
 app.use(cookieParser());
-app.use('/uploads', express.static('uploads'));
+// app.use('/uploads', express.static('uploads'));
 
 // Đặt express.json và express.urlencoded lên TRƯỚC các route
 app.use(express.json({ limit: "20mb" }));
@@ -54,7 +54,7 @@ app.use("/api/auth", authRoutes);
 
 // Phục vụ tệp tĩnh từ thư mục public (chỉ cho trang login)
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 // Route cho admin login (chỉ trả về HTML login, không điều hướng dashboard)
 app.get('/admin/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'AdminLogin.html'));
@@ -88,6 +88,9 @@ app.use((err, req, res, next) => {
     message: err.message || 'Đã xảy ra lỗi server'
   });
 });
+
+// Phục vụ file tĩnh cho thư mục uploads
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Kết nối database trước khi start server
 const startServer = async () => {
