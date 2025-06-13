@@ -216,10 +216,13 @@ export const deleteProduct = async (req, res) => {
       });
     }
   } catch (error) {
-    console.error(`Lỗi khi xóa sản phẩm:`, error);
+    console.error(`Lỗi khi xóa sản phẩm:`, error); // Đã có
+    // Thêm log chi tiết
+    if (error.stack) console.error(error.stack);
     res.status(500).json({
       success: false,
-      message: 'Đã xảy ra lỗi khi xóa sản phẩm'
+      message: 'Đã xảy ra lỗi khi xóa sản phẩm',
+      error: error.message || error // Trả về message lỗi cho FE (tạm thời để debug)
     });
   }
 };
