@@ -2,6 +2,8 @@
  * Middleware xác thực người dùng
  * Kiểm tra token trong header Authorization
  */
+import jwt from "jsonwebtoken";
+
 export const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
@@ -10,21 +12,18 @@ export const authMiddleware = (req, res, next) => {
       message: "Không tìm thấy token xác thực" 
     });
   }
-  
+
   const token = authHeader.split(" ")[1];
-  if (token !== "admin-token") {
-    return res.status(401).json({ 
-      success: false, 
-      message: "Token không hợp lệ" 
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "your_jwt_secret");
+    req.user = decoded; // Gán thông tin user từ token vào request
+    next();
+  } catch (err) {
+    return res.status(401).json({
+      success: false,
+      message: "Token không hợp lệ"
     });
   }
-  
-  // Nếu token hợp lệ, gán thông tin user vào request để sử dụng ở các middleware sau
-  req.user = { 
-    role: "admin" 
-  };
-  
-  next();
 };
 
 /**
@@ -32,22 +31,21 @@ export const authMiddleware = (req, res, next) => {
  * Yêu cầu chạy sau authMiddleware
  */
 export const adminMiddleware = (req, res, next) => {
-  // Kiểm tra xem req.user có tồn tại không (đã được set bởi authMiddleware)
   if (!req.user) {
     return res.status(401).json({
       success: false,
       message: "Bạn chưa đăng nhập"
     });
   }
-  
-  // Kiểm tra quyền admin
-  if (req.user.role !== "admin") {
+
+  // Nếu token không chứa role, mặc định là admin (vì login chỉ có admin)
+  if (req.user.role && req.user.role !== "admin") {
     return res.status(403).json({
       success: false,
       message: "Bạn không có quyền thực hiện hành động này"
     });
   }
-  
+
   next();
 };
 
@@ -62,7 +60,7 @@ export const userMiddleware = (req, res, next) => {
       message: "Bạn chưa đăng nhập"
     });
   }
-  
+
   // Cho phép cả admin và user thông thường
   if (req.user.role !== "admin" && req.user.role !== "user") {
     return res.status(403).json({
@@ -70,7 +68,7 @@ export const userMiddleware = (req, res, next) => {
       message: "Bạn không có quyền thực hiện hành động này"
     });
   }
-  
+
   next();
 };
 
@@ -83,14 +81,14 @@ export const resourceAccessMiddleware = (checkFn) => {
   return async (req, res, next) => {
     try {
       const hasAccess = await checkFn(req);
-      
+
       if (!hasAccess) {
         return res.status(403).json({
           success: false,
           message: "Bạn không có quyền truy cập tài nguyên này"
         });
       }
-      
+
       next();
     } catch (error) {
       console.error("Lỗi kiểm tra quyền truy cập:", error);
