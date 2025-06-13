@@ -59,7 +59,8 @@ router.post(
       console.error('Lỗi khi tải lên hình ảnh:', error);
       res.status(500).json({
         success: false,
-        message: 'Đã xảy ra lỗi khi tải lên hình ảnh'
+        message: 'Đã xảy ra lỗi khi tải lên hình ảnh',
+        error: error.message,
       });
     }
   }
