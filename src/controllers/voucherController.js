@@ -86,7 +86,21 @@ export const createVoucher = async (req, res) => {
       Image || null
     ]);
 
-    res.status(201).json({ message: "Voucher created successfully", Code });
+    res.status(201).json({
+    message: "Voucher created successfully",
+    voucher: {
+      VoucherID,
+      Code,
+      Description,
+      Discount,
+      ExpiryDate,
+      IsActive,
+      Category,
+      Quantity,
+      Probability,
+      Image
+    }
+  });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
