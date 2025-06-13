@@ -48,8 +48,7 @@ router.post(
       }
 
       // Đường dẫn ảnh public trên Cloudinary
-      const imageUrl = req.file.path;
-
+      const imageUrl = req.file.path ? req.file.path : req.file.url;
       res.json({
         success: true,
         message: 'Tải lên hình ảnh thành công',

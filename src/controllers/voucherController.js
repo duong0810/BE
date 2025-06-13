@@ -50,6 +50,7 @@ export const findVoucher = async (req, res) => {
 
 // Tạo voucher mới
 export const createVoucher = async (req, res) => {
+  console.log(req.body);
   try {
     const {
       VoucherID,
