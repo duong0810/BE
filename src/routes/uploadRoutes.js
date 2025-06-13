@@ -65,4 +65,28 @@ router.post(
   }
 );
 
+// Route upload hình ảnh voucher lên Cloudinary
+router.post(
+  '/voucher-image',
+  authMiddleware,
+  upload.single('image'),
+  (req, res) => {
+    try {
+      const image = req.file.path ? req.file.path : req.file.url;
+      res.json({
+        success: true,
+        message: 'Tải lên hình ảnh voucher thành công',
+        data: { image }
+      });
+    } catch (error) {
+      console.error('Lỗi khi tải lên hình ảnh voucher:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Đã xảy ra lỗi khi tải lên hình ảnh voucher',
+        error: error.message,
+      });
+    }
+  }
+);
+
 export default router;
