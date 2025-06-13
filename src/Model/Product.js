@@ -155,3 +155,18 @@ export const updateProduct = async (productId, productData) => {
     throw error;
   }
 };
+
+// Xóa sản phẩm (xóa thật)
+export const deleteProduct = async (productId) => {
+  try {
+    const pool = await getPool();
+    const result = await pool.query(
+      `DELETE FROM Products WHERE ProductID = $1`,
+      [productId]
+    );
+    return result.rowCount > 0;
+  } catch (error) {
+    console.error(`Lỗi khi xóa sản phẩm:`, error);
+    throw error;
+  }
+};
