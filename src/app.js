@@ -25,6 +25,7 @@ const app = express();
 app.use(cors({
   origin: [
     'https://zalo.me/',  // FE port
+    'https://zalo.me/s/1238744718359726123/', 
     'http://localhost:3000', 
     'http://localhost:3001', 
     'http://localhost:5173',
