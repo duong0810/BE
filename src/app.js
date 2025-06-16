@@ -24,8 +24,7 @@ const app = express();
 // CORS configuration - MUST BE FIRST
 app.use(cors({
   origin: [
-    'https://zalo.me/',  // FE port
-    'https://zalo.me/s/1238744718359726123/', 
+    'https://h5.zdn.vn',
     'http://localhost:3000', 
     'http://localhost:3001', 
     'http://localhost:5173',
