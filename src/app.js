@@ -44,7 +44,7 @@ app.use(express.urlencoded({ limit: "20mb", extended: true }));
 
 // Phục vụ file tĩnh cho thư mục uploads (ĐẶT TRƯỚC các route khác)
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
-
+app.use('/images', express.static(path.join(__dirname, 'public/images')));
 // Sau đó mới khai báo các route
 app.use("/api/vouchers", voucherRoutes);
 app.use("/health", healthRoutes);
