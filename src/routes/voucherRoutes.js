@@ -135,4 +135,36 @@ router.post("/claim", async (req, res) => {
   }
 });
 
+// Route lấy danh sách voucher của user Zalo
+router.get("/user/:zaloId", async (req, res) => {
+  const { zaloId } = req.params;
+  if (!zaloId) {
+    return res.status(400).json({ error: "Thiếu zaloId" });
+  }
+  try {
+    const pool = await getPool();
+    // Lấy UserID theo zaloId
+    const userResult = await pool.query(
+      'SELECT "UserID" FROM "Users" WHERE "ZaloID" = $1',
+      [zaloId]
+    );
+    if (userResult.rows.length === 0) {
+      return res.json([]); // User chưa từng nhận voucher nào
+    }
+    const userId = userResult.rows[0].UserID;
+    // Lấy danh sách voucher đã nhận
+    const vouchers = await pool.query(
+      `SELECT v.*, uv."IsUsed", uv."AssignedAt", uv."UsedAt"
+       FROM "UserVouchers" uv
+       JOIN "Vouchers" v ON uv."VoucherID" = v."VoucherID"
+       WHERE uv."UserID" = $1
+       ORDER BY uv."AssignedAt" DESC`,
+      [userId]
+    );
+    res.json(vouchers.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
