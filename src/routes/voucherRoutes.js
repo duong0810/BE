@@ -92,5 +92,47 @@ router.post("/login", (req, res) => {
   }
   return res.status(401).json({ success: false, message: "Sai tài khoản hoặc mật khẩu!" });
 });
+// Route nhận voucher cho user Zalo (không cần đăng ký)
+router.post("/claim", async (req, res) => {
+  const { voucherId, zaloId } = req.body;
+  if (!voucherId || !zaloId) {
+    return res.status(400).json({ error: "Thiếu voucherId hoặc zaloId" });
+  }
+  try {
+    const pool = await getPool();
+    // Tìm hoặc tạo user theo zaloId
+    let userResult = await pool.query(
+      'SELECT "UserID" FROM "Users" WHERE "ZaloID" = $1',
+      [zaloId]
+    );
+    let userId;
+    if (userResult.rows.length === 0) {
+      // Tạo mới user nếu chưa có
+      const insertUser = await pool.query(
+        'INSERT INTO "Users" ("ZaloID", "Username", "Status") VALUES ($1, $2, $3) RETURNING "UserID"',
+        [zaloId, `zalo_${zaloId}`, 'active']
+      );
+      userId = insertUser.rows[0].UserID;
+    } else {
+      userId = userResult.rows[0].UserID;
+    }
+    // Kiểm tra đã nhận voucher này chưa
+    const check = await pool.query(
+      'SELECT * FROM "UserVouchers" WHERE "UserID" = $1 AND "VoucherID" = $2',
+      [userId, voucherId]
+    );
+    if (check.rows.length > 0) {
+      return res.status(409).json({ error: "Bạn đã nhận voucher này rồi" });
+    }
+    // Gán voucher cho user
+    await pool.query(
+      'INSERT INTO "UserVouchers" ("UserID", "VoucherID") VALUES ($1, $2)',
+      [userId, voucherId]
+    );
+    res.json({ success: true, message: "Nhận voucher thành công" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 export default router;
