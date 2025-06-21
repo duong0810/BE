@@ -158,13 +158,13 @@ router.get("/user/:zaloId", async (req, res) => {
     // Lấy danh sách voucher đã nhận
     const vouchers = await pool.query(
       `SELECT v.*, uv.isused, uv.assignedat, uv.usedat
-       FROM uservouchers uv
-       JOIN "Vouchers" v ON uv.voucherid = v."VoucherID"
-       WHERE uv.userid = $1
-       ORDER BY uv.assignedat DESC`,
+      FROM uservouchers uv
+      JOIN vouchers v ON uv.voucherid = v.voucherid
+      WHERE uv.userid = $1
+      ORDER BY uv.assignedat DESC`,
       [userId]
     );
-    console.log("vouchers:", vouchers.rows); // Thêm dòng này
+    console.log("vouchers:", vouchers.rows);
     res.json(vouchers.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
