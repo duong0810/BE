@@ -154,6 +154,7 @@ router.get("/user/:zaloId", async (req, res) => {
       return res.json([]); // User chưa từng nhận voucher nào
     }
     const userId = userResult.rows[0].userid;
+    console.log("userId:", userId); // Thêm dòng này
     // Lấy danh sách voucher đã nhận
     const vouchers = await pool.query(
       `SELECT v.*, uv.isused, uv.assignedat, uv.usedat
@@ -163,6 +164,7 @@ router.get("/user/:zaloId", async (req, res) => {
        ORDER BY uv.assignedat DESC`,
       [userId]
     );
+    console.log("vouchers:", vouchers.rows); // Thêm dòng này
     res.json(vouchers.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
