@@ -102,14 +102,14 @@ router.post("/claim", async (req, res) => {
     const pool = await getPool();
     // Tìm hoặc tạo user theo zaloId
     let userResult = await pool.query(
-      'SELECT "UserID" FROM "Users" WHERE "ZaloID" = $1',
+      'SELECT "UserID" FROM users WHERE "ZaloID" = $1',
       [zaloId]
     );
     let userId;
     if (userResult.rows.length === 0) {
       // Tạo mới user nếu chưa có
       const insertUser = await pool.query(
-        'INSERT INTO "Users" ("ZaloID", "Username", "Status") VALUES ($1, $2, $3) RETURNING "UserID"',
+        'INSERT INTO users ("ZaloID", "Username", "Status") VALUES ($1, $2, $3) RETURNING "UserID"',
         [zaloId, `zalo_${zaloId}`, 'active']
       );
       userId = insertUser.rows[0].UserID;
@@ -145,7 +145,7 @@ router.get("/user/:zaloId", async (req, res) => {
     const pool = await getPool();
     // Lấy UserID theo zaloId
     const userResult = await pool.query(
-      'SELECT "UserID" FROM "Users" WHERE "ZaloID" = $1',
+      'SELECT "UserID" FROM users WHERE "ZaloID" = $1',
       [zaloId]
     );
     if (userResult.rows.length === 0) {
