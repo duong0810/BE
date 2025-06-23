@@ -26,7 +26,7 @@ app.use(cors({
   origin: [
     'https://zalo.kosmosdevelopment.com',
     'https://h5.zdn.vn',
-    'https://fe-r8kg.onrender.com', 
+    'https://fe-js0a.onrender.com', 
     'http://localhost:3001', 
     'https://zalo.me'
   ],
