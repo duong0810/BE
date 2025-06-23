@@ -28,6 +28,7 @@ app.use(cors({
     'https://h5.zdn.vn',
     'https://fe-js0a.onrender.com', 
     'http://localhost:3001', 
+    'http://localhost:3000',
     'https://zalo.me'
   ],
   credentials: true,
