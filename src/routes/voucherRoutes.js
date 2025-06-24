@@ -197,9 +197,9 @@ router.post("/assign", async (req, res) => {
     }
     // Lưu voucher cho user
     await pool.query(
-      "INSERT INTO uservouchers (userid, voucherid) VALUES ($1, $2)",
-      [userId, voucherId]
-    );
+    "INSERT INTO uservouchers (userid, voucherid, isused, assignedat) VALUES ($1, $2, $3, NOW())",
+    [userId, voucherId, false]
+  );
     res.json({ success: true, message: "Đã lưu voucher cho user" });
   } catch (err) {
     res.status(500).json({ error: err.message });
