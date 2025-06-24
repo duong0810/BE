@@ -171,4 +171,39 @@ router.get("/user/:zaloId", async (req, res) => {
   }
 });
 
+router.post("/assign", async (req, res) => {
+  const { zaloId, voucherId } = req.body;
+  if (!zaloId || !voucherId) {
+    return res.status(400).json({ error: "Thiếu zaloId hoặc voucherId" });
+  }
+  try {
+    const pool = await getPool();
+    // Lấy userid từ zaloid
+    const userResult = await pool.query(
+      "SELECT userid FROM users WHERE zaloid = $1",
+      [zaloId]
+    );
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "Không tìm thấy user" });
+    }
+    const userId = userResult.rows[0].userid;
+    // Kiểm tra đã nhận voucher này chưa
+    const check = await pool.query(
+      "SELECT * FROM uservouchers WHERE userid = $1 AND voucherid = $2",
+      [userId, voucherId]
+    );
+    if (check.rows.length > 0) {
+      return res.status(409).json({ error: "Bạn đã nhận voucher này rồi" });
+    }
+    // Lưu voucher cho user
+    await pool.query(
+      "INSERT INTO uservouchers (userid, voucherid) VALUES ($1, $2)",
+      [userId, voucherId]
+    );
+    res.json({ success: true, message: "Đã lưu voucher cho user" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

@@ -22,7 +22,7 @@ router.post("/login", (req, res) => {
 
 // Đăng ký user bằng Zalo
 router.post("/register", async (req, res) => {
-  const { zaloId, username, phone, fullName } = req.body;
+  const { zaloId, username, phone, fullName, avatar } = req.body;
   if (!zaloId || !username || !phone) {
     return res.status(400).json({ error: "Thiếu thông tin đăng ký" });
   }
@@ -38,8 +38,8 @@ router.post("/register", async (req, res) => {
     }
     // Tạo mới user
     await pool.query(
-      "INSERT INTO users (zaloid, username, phone, fullname, status) VALUES ($1, $2, $3, $4, $5)",
-      [zaloId, username, phone, fullName || username, "active"]
+      "INSERT INTO users (zaloid, username, phone, fullname, avatar, status) VALUES ($1, $2, $3, $4, $5, $6)",
+      [zaloId, username, phone, fullName || username, avatar, "active"]
     );
     res.json({ success: true });
   } catch (err) {
