@@ -47,4 +47,30 @@ router.post("/register", async (req, res) => {
   }
 });
 
+router.put("/update", async (req, res) => {
+  const { zaloId, username, gender, birthday, city, district, ward, address } = req.body;
+  if (!zaloId) {
+    return res.status(400).json({ error: "Thiếu zaloId" });
+  }
+  try {
+    const pool = await getPool();
+    await pool.query(
+      `UPDATE users SET 
+        username = $1, 
+        gender = $2, 
+        birthday = $3, 
+        city = $4, 
+        district = $5, 
+        ward = $6, 
+        address = $7,
+        updatedat = NOW()
+      WHERE zaloid = $8`,
+      [username, gender, birthday, city, district, ward, address, zaloId]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
