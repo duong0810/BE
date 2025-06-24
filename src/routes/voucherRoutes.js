@@ -171,9 +171,14 @@ router.get("/user/:zaloId", async (req, res) => {
   }
 });
 
+
 router.post("/assign", async (req, res) => {
+  console.log("===== /assign DEBUG =====");
+  console.log("Body nhận được:", req.body);
+
   const { zaloId, voucherId } = req.body;
   if (!zaloId || !voucherId) {
+    console.log("Thiếu zaloId hoặc voucherId");
     return res.status(400).json({ error: "Thiếu zaloId hoặc voucherId" });
   }
   try {
@@ -183,7 +188,9 @@ router.post("/assign", async (req, res) => {
       "SELECT userid FROM users WHERE zaloid = $1",
       [zaloId]
     );
+    console.log("userResult:", userResult.rows);
     if (userResult.rows.length === 0) {
+      console.log("Không tìm thấy user với zaloId:", zaloId);
       return res.status(404).json({ error: "Không tìm thấy user" });
     }
     const userId = userResult.rows[0].userid;
@@ -192,16 +199,20 @@ router.post("/assign", async (req, res) => {
       "SELECT * FROM uservouchers WHERE userid = $1 AND voucherid = $2",
       [userId, voucherId]
     );
+    console.log("Check uservouchers:", check.rows);
     if (check.rows.length > 0) {
+      console.log("User đã nhận voucher này rồi");
       return res.status(409).json({ error: "Bạn đã nhận voucher này rồi" });
     }
     // Lưu voucher cho user
     await pool.query(
-    "INSERT INTO uservouchers (userid, voucherid, isused, assignedat) VALUES ($1, $2, $3, NOW())",
-    [userId, voucherId, false]
-  );
+      "INSERT INTO uservouchers (userid, voucherid, isused, assignedat) VALUES ($1, $2, $3, NOW())",
+      [userId, voucherId, false]
+    );
+    console.log("Đã lưu voucher cho user:", userId, voucherId);
     res.json({ success: true, message: "Đã lưu voucher cho user" });
   } catch (err) {
+    console.error("Lỗi khi assign voucher:", err);
     res.status(500).json({ error: err.message });
   }
 });
