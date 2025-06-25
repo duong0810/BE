@@ -93,45 +93,61 @@ router.post("/login", (req, res) => {
   return res.status(401).json({ success: false, message: "Sai tài khoản hoặc mật khẩu!" });
 });
 
+// --- API CLAIM VOUCHER ---
 router.post("/claim", async (req, res) => {
   const { zaloId, voucherId } = req.body;
+  console.log("[CLAIM] Nhận được:", { zaloId, voucherId });
+
   if (!zaloId || !voucherId) {
+    console.log("[CLAIM] Thiếu zaloId hoặc voucherId");
     return res.status(400).json({ error: "Thiếu zaloId hoặc voucherId" });
   }
   try {
     const pool = await getPool();
-    // 1. Mapping zaloId -> userid
+    // Mapping zaloId -> userid
     const userResult = await pool.query(
       "SELECT userid FROM users WHERE zaloid = $1",
       [zaloId]
     );
+    console.log("[CLAIM] Kết quả tìm user:", userResult.rows);
+
     if (userResult.rows.length === 0) {
+      console.log("[CLAIM] Không tìm thấy user với zaloId:", zaloId);
       return res.status(404).json({ error: "User not found" });
     }
     const userId = userResult.rows[0].userid;
 
-    // 2. Dùng userId thao tác với uservouchers
+    // Kiểm tra đã nhận voucher này chưa
     const check = await pool.query(
       "SELECT * FROM uservouchers WHERE userid = $1 AND voucherid = $2",
       [userId, voucherId]
     );
+    console.log("[CLAIM] Kết quả kiểm tra uservouchers:", check.rows);
+
     if (check.rows.length > 0) {
+      console.log("[CLAIM] User đã nhận voucher này rồi");
       return res.status(409).json({ error: "Bạn đã nhận voucher này rồi" });
     }
+    // Lưu voucher cho user
     await pool.query(
       "INSERT INTO uservouchers (userid, voucherid) VALUES ($1, $2)",
       [userId, voucherId]
     );
+    console.log("[CLAIM] Đã lưu voucher cho user:", userId, voucherId);
     res.json({ success: true, message: "Nhận voucher thành công" });
   } catch (err) {
+    console.error("[CLAIM] Lỗi:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Route lấy danh sách voucher của user Zalo
+// --- API LẤY DANH SÁCH VOUCHER ĐÃ NHẬN ---
 router.get("/user", async (req, res) => {
   const { zaloId } = req.query;
+  console.log("[GET USER VOUCHERS] Nhận được zaloId:", zaloId);
+
   if (!zaloId) {
+    console.log("[GET USER VOUCHERS] Thiếu zaloId");
     return res.status(400).json({ error: "Thiếu zaloId" });
   }
   try {
@@ -141,7 +157,10 @@ router.get("/user", async (req, res) => {
       "SELECT userid FROM users WHERE zaloid = $1",
       [zaloId]
     );
+    console.log("[GET USER VOUCHERS] Kết quả tìm user:", userResult.rows);
+
     if (userResult.rows.length === 0) {
+      console.log("[GET USER VOUCHERS] Không tìm thấy user với zaloId:", zaloId);
       return res.json([]); // User chưa từng nhận voucher nào
     }
     const userId = userResult.rows[0].userid;
@@ -154,11 +173,80 @@ router.get("/user", async (req, res) => {
        ORDER BY uv.assignedat DESC`,
       [userId]
     );
+    console.log("[GET USER VOUCHERS] Danh sách vouchers:", vouchers.rows);
     res.json(vouchers.rows);
   } catch (err) {
+    console.error("[GET USER VOUCHERS] Lỗi:", err);
     res.status(500).json({ error: err.message });
   }
 });
+
+// router.post("/claim", async (req, res) => {
+//   const { zaloId, voucherId } = req.body;
+//   if (!zaloId || !voucherId) {
+//     return res.status(400).json({ error: "Thiếu zaloId hoặc voucherId" });
+//   }
+//   try {
+//     const pool = await getPool();
+//     // 1. Mapping zaloId -> userid
+//     const userResult = await pool.query(
+//       "SELECT userid FROM users WHERE zaloid = $1",
+//       [zaloId]
+//     );
+//     if (userResult.rows.length === 0) {
+//       return res.status(404).json({ error: "User not found" });
+//     }
+//     const userId = userResult.rows[0].userid;
+
+//     // 2. Dùng userId thao tác với uservouchers
+//     const check = await pool.query(
+//       "SELECT * FROM uservouchers WHERE userid = $1 AND voucherid = $2",
+//       [userId, voucherId]
+//     );
+//     if (check.rows.length > 0) {
+//       return res.status(409).json({ error: "Bạn đã nhận voucher này rồi" });
+//     }
+//     await pool.query(
+//       "INSERT INTO uservouchers (userid, voucherid) VALUES ($1, $2)",
+//       [userId, voucherId]
+//     );
+//     res.json({ success: true, message: "Nhận voucher thành công" });
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// });
+
+// // Route lấy danh sách voucher của user Zalo
+// router.get("/user", async (req, res) => {
+//   const { zaloId } = req.query;
+//   if (!zaloId) {
+//     return res.status(400).json({ error: "Thiếu zaloId" });
+//   }
+//   try {
+//     const pool = await getPool();
+//     // Mapping zaloId -> userid
+//     const userResult = await pool.query(
+//       "SELECT userid FROM users WHERE zaloid = $1",
+//       [zaloId]
+//     );
+//     if (userResult.rows.length === 0) {
+//       return res.json([]); // User chưa từng nhận voucher nào
+//     }
+//     const userId = userResult.rows[0].userid;
+//     // Truy vấn voucher đã nhận
+//     const vouchers = await pool.query(
+//       `SELECT v.*, uv.isused, uv.assignedat, uv.usedat
+//        FROM uservouchers uv
+//        JOIN vouchers v ON uv.voucherid = v.voucherid
+//        WHERE uv.userid = $1
+//        ORDER BY uv.assignedat DESC`,
+//       [userId]
+//     );
+//     res.json(vouchers.rows);
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// });
 
 
 router.post("/assign", async (req, res) => {
