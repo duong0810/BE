@@ -77,22 +77,6 @@ router.post("/collect", async (req, res) => {
   }
 });
 
-router.get("/", getAllVouchers);
-router.get("/:id", findVoucher);
-router.delete("/:id", authMiddleware, deleteVoucher);
-
-// Route đăng nhập admin
-router.post("/login", (req, res) => {
-  const { username, password } = req.body;
-  if (
-    username === process.env.ADMIN_USERNAME &&
-    password === process.env.ADMIN_PASSWORD
-  ) {
-    return res.json({ success: true, token: "admin-token" });
-  }
-  return res.status(401).json({ success: false, message: "Sai tài khoản hoặc mật khẩu!" });
-});
-
 // --- API CLAIM VOUCHER ---
 router.post("/claim", async (req, res) => {
   const { zaloId, voucherId } = req.body;
@@ -181,74 +165,6 @@ router.get("/user", async (req, res) => {
   }
 });
 
-// router.post("/claim", async (req, res) => {
-//   const { zaloId, voucherId } = req.body;
-//   if (!zaloId || !voucherId) {
-//     return res.status(400).json({ error: "Thiếu zaloId hoặc voucherId" });
-//   }
-//   try {
-//     const pool = await getPool();
-//     // 1. Mapping zaloId -> userid
-//     const userResult = await pool.query(
-//       "SELECT userid FROM users WHERE zaloid = $1",
-//       [zaloId]
-//     );
-//     if (userResult.rows.length === 0) {
-//       return res.status(404).json({ error: "User not found" });
-//     }
-//     const userId = userResult.rows[0].userid;
-
-//     // 2. Dùng userId thao tác với uservouchers
-//     const check = await pool.query(
-//       "SELECT * FROM uservouchers WHERE userid = $1 AND voucherid = $2",
-//       [userId, voucherId]
-//     );
-//     if (check.rows.length > 0) {
-//       return res.status(409).json({ error: "Bạn đã nhận voucher này rồi" });
-//     }
-//     await pool.query(
-//       "INSERT INTO uservouchers (userid, voucherid) VALUES ($1, $2)",
-//       [userId, voucherId]
-//     );
-//     res.json({ success: true, message: "Nhận voucher thành công" });
-//   } catch (err) {
-//     res.status(500).json({ error: err.message });
-//   }
-// });
-
-// // Route lấy danh sách voucher của user Zalo
-// router.get("/user", async (req, res) => {
-//   const { zaloId } = req.query;
-//   if (!zaloId) {
-//     return res.status(400).json({ error: "Thiếu zaloId" });
-//   }
-//   try {
-//     const pool = await getPool();
-//     // Mapping zaloId -> userid
-//     const userResult = await pool.query(
-//       "SELECT userid FROM users WHERE zaloid = $1",
-//       [zaloId]
-//     );
-//     if (userResult.rows.length === 0) {
-//       return res.json([]); // User chưa từng nhận voucher nào
-//     }
-//     const userId = userResult.rows[0].userid;
-//     // Truy vấn voucher đã nhận
-//     const vouchers = await pool.query(
-//       `SELECT v.*, uv.isused, uv.assignedat, uv.usedat
-//        FROM uservouchers uv
-//        JOIN vouchers v ON uv.voucherid = v.voucherid
-//        WHERE uv.userid = $1
-//        ORDER BY uv.assignedat DESC`,
-//       [userId]
-//     );
-//     res.json(vouchers.rows);
-//   } catch (err) {
-//     res.status(500).json({ error: err.message });
-//   }
-// });
-
-
 router.post("/assign", async (req, res) => {
   console.log("===== /assign DEBUG =====");
   console.log("Body nhận được:", req.body);
@@ -292,6 +208,23 @@ router.post("/assign", async (req, res) => {
     console.error("Lỗi khi assign voucher:", err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ĐẶT CÁC ROUTE ĐỘNG Ở CUỐI FILE
+router.get("/", getAllVouchers);
+router.get("/:id", findVoucher);
+router.delete("/:id", authMiddleware, deleteVoucher);
+
+// Route đăng nhập admin
+router.post("/login", (req, res) => {
+  const { username, password } = req.body;
+  if (
+    username === process.env.ADMIN_USERNAME &&
+    password === process.env.ADMIN_PASSWORD
+  ) {
+    return res.json({ success: true, token: "admin-token" });
+  }
+  return res.status(401).json({ success: false, message: "Sai tài khoản hoặc mật khẩu!" });
 });
 
 export default router;
