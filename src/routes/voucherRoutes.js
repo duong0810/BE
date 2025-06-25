@@ -93,78 +93,67 @@ router.post("/login", (req, res) => {
   return res.status(401).json({ success: false, message: "Sai tài khoản hoặc mật khẩu!" });
 });
 
-// Route nhận voucher cho user Zalo (không cần đăng ký)
 router.post("/claim", async (req, res) => {
-  const { voucherId, zaloId } = req.body;
-  if (!voucherId || !zaloId) {
-    return res.status(400).json({ error: "Thiếu voucherId hoặc zaloId" });
+  const { zaloId, voucherId } = req.body;
+  if (!zaloId || !voucherId) {
+    return res.status(400).json({ error: "Thiếu zaloId hoặc voucherId" });
   }
   try {
     const pool = await getPool();
-    // Tìm hoặc tạo user theo zaloId
-    let userResult = await pool.query(
-  'SELECT userid FROM users WHERE zaloid = $1',
-  [zaloId]
-);
-
-  let userId;
-  if (userResult.rows.length === 0) {
-    // Tạo mới user nếu chưa có
-    const insertUser = await pool.query(
-      'INSERT INTO users (zaloid, username, status) VALUES ($1, $2, $3) RETURNING userid',
-      [zaloId, `zalo_${zaloId}`, 'active']
+    // 1. Mapping zaloId -> userid
+    const userResult = await pool.query(
+      "SELECT userid FROM users WHERE zaloid = $1",
+      [zaloId]
     );
-    userId = insertUser.rows[0].userid;
-  } else {
-    userId = userResult.rows[0].userid;
-  }
-  // Kiểm tra đã nhận voucher này chưa
-  const check = await pool.query(
-    'SELECT * FROM uservouchers WHERE userid = $1 AND voucherid = $2',
-    [userId, voucherId]
-  );
-  if (check.rows.length > 0) {
-    return res.status(409).json({ error: "Bạn đã nhận voucher này rồi" });
-  }
-  // Gán voucher cho user
-  await pool.query(
-    'INSERT INTO uservouchers (userid, voucherid) VALUES ($1, $2)',
-    [userId, voucherId]
-  );
-  res.json({ success: true, message: "Nhận voucher thành công" });
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    const userId = userResult.rows[0].userid;
+
+    // 2. Dùng userId thao tác với uservouchers
+    const check = await pool.query(
+      "SELECT * FROM uservouchers WHERE userid = $1 AND voucherid = $2",
+      [userId, voucherId]
+    );
+    if (check.rows.length > 0) {
+      return res.status(409).json({ error: "Bạn đã nhận voucher này rồi" });
+    }
+    await pool.query(
+      "INSERT INTO uservouchers (userid, voucherid) VALUES ($1, $2)",
+      [userId, voucherId]
+    );
+    res.json({ success: true, message: "Nhận voucher thành công" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // Route lấy danh sách voucher của user Zalo
-router.get("/user/:zaloId", async (req, res) => {
-  const { zaloId } = req.params;
+router.get("/user", async (req, res) => {
+  const { zaloId } = req.query;
   if (!zaloId) {
     return res.status(400).json({ error: "Thiếu zaloId" });
   }
   try {
     const pool = await getPool();
-    // Lấy userid theo zaloid
+    // Mapping zaloId -> userid
     const userResult = await pool.query(
-      'SELECT userid FROM users WHERE zaloid = $1',
+      "SELECT userid FROM users WHERE zaloid = $1",
       [zaloId]
     );
     if (userResult.rows.length === 0) {
       return res.json([]); // User chưa từng nhận voucher nào
     }
     const userId = userResult.rows[0].userid;
-    console.log("userId:", userId); // Thêm dòng này
-    // Lấy danh sách voucher đã nhận
+    // Truy vấn voucher đã nhận
     const vouchers = await pool.query(
       `SELECT v.*, uv.isused, uv.assignedat, uv.usedat
-      FROM uservouchers uv
-      JOIN vouchers v ON uv.voucherid = v.voucherid
-      WHERE uv.userid = $1
-      ORDER BY uv.assignedat DESC`,
+       FROM uservouchers uv
+       JOIN vouchers v ON uv.voucherid = v.voucherid
+       WHERE uv.userid = $1
+       ORDER BY uv.assignedat DESC`,
       [userId]
     );
-    console.log("vouchers:", vouchers.rows);
     res.json(vouchers.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
