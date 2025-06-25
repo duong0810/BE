@@ -88,7 +88,17 @@ router.post("/claim", async (req, res) => {
   }
   try {
     const pool = await getPool();
-    // Mapping zaloId -> userid
+
+    // 1. Kiểm tra số lượng voucher còn không
+    const voucherResult = await pool.query(
+      "SELECT quantity FROM vouchers WHERE voucherid = $1",
+      [voucherId]
+    );
+    if (voucherResult.rows.length === 0 || voucherResult.rows[0].quantity <= 0) {
+      return res.status(400).json({ error: "Voucher đã hết số lượng" });
+    }
+
+    // 2. Mapping zaloId -> userid
     const userResult = await pool.query(
       "SELECT userid FROM users WHERE zaloid = $1",
       [zaloId]
@@ -101,7 +111,7 @@ router.post("/claim", async (req, res) => {
     }
     const userId = userResult.rows[0].userid;
 
-    // Kiểm tra đã nhận voucher này chưa
+    // 3. Kiểm tra đã nhận voucher này chưa
     const check = await pool.query(
       "SELECT * FROM uservouchers WHERE userid = $1 AND voucherid = $2",
       [userId, voucherId]
@@ -112,12 +122,20 @@ router.post("/claim", async (req, res) => {
       console.log("[CLAIM] User đã nhận voucher này rồi");
       return res.status(409).json({ error: "Bạn đã nhận voucher này rồi" });
     }
-    // Lưu voucher cho user
+
+    // 4. Lưu voucher cho user
     await pool.query(
       "INSERT INTO uservouchers (userid, voucherid) VALUES ($1, $2)",
       [userId, voucherId]
     );
-    console.log("[CLAIM] Đã lưu voucher cho user:", userId, voucherId);
+
+    // 5. Trừ số lượng voucher
+    await pool.query(
+      "UPDATE vouchers SET quantity = quantity - 1 WHERE voucherid = $1 AND quantity > 0",
+      [voucherId]
+    );
+
+    console.log("[CLAIM] Đã lưu voucher và trừ số lượng:", userId, voucherId);
     res.json({ success: true, message: "Nhận voucher thành công" });
   } catch (err) {
     console.error("[CLAIM] Lỗi:", err);
@@ -125,46 +143,7 @@ router.post("/claim", async (req, res) => {
   }
 });
 
-// --- API LẤY DANH SÁCH VOUCHER ĐÃ NHẬN ---
-router.get("/user", async (req, res) => {
-  const { zaloId } = req.query;
-  console.log("[GET USER VOUCHERS] Nhận được zaloId:", zaloId);
-
-  if (!zaloId) {
-    console.log("[GET USER VOUCHERS] Thiếu zaloId");
-    return res.status(400).json({ error: "Thiếu zaloId" });
-  }
-  try {
-    const pool = await getPool();
-    // Mapping zaloId -> userid
-    const userResult = await pool.query(
-      "SELECT userid FROM users WHERE zaloid = $1",
-      [zaloId]
-    );
-    console.log("[GET USER VOUCHERS] Kết quả tìm user:", userResult.rows);
-
-    if (userResult.rows.length === 0) {
-      console.log("[GET USER VOUCHERS] Không tìm thấy user với zaloId:", zaloId);
-      return res.json([]); // User chưa từng nhận voucher nào
-    }
-    const userId = userResult.rows[0].userid;
-    // Truy vấn voucher đã nhận
-    const vouchers = await pool.query(
-      `SELECT v.*, uv.isused, uv.assignedat, uv.usedat
-       FROM uservouchers uv
-       JOIN vouchers v ON uv.voucherid = v.voucherid
-       WHERE uv.userid = $1
-       ORDER BY uv.assignedat DESC`,
-      [userId]
-    );
-    console.log("[GET USER VOUCHERS] Danh sách vouchers:", vouchers.rows);
-    res.json(vouchers.rows);
-  } catch (err) {
-    console.error("[GET USER VOUCHERS] Lỗi:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
+// --- API ASSIGN VOUCHER ---
 router.post("/assign", async (req, res) => {
   console.log("===== /assign DEBUG =====");
   console.log("Body nhận được:", req.body);
@@ -176,7 +155,17 @@ router.post("/assign", async (req, res) => {
   }
   try {
     const pool = await getPool();
-    // Lấy userid từ zaloid
+
+    // 1. Kiểm tra số lượng voucher còn không
+    const voucherResult = await pool.query(
+      "SELECT quantity FROM vouchers WHERE voucherid = $1",
+      [voucherId]
+    );
+    if (voucherResult.rows.length === 0 || voucherResult.rows[0].quantity <= 0) {
+      return res.status(400).json({ error: "Voucher đã hết số lượng" });
+    }
+
+    // 2. Lấy userid từ zaloid
     const userResult = await pool.query(
       "SELECT userid FROM users WHERE zaloid = $1",
       [zaloId]
@@ -187,7 +176,8 @@ router.post("/assign", async (req, res) => {
       return res.status(404).json({ error: "Không tìm thấy user" });
     }
     const userId = userResult.rows[0].userid;
-    // Kiểm tra đã nhận voucher này chưa
+
+    // 3. Kiểm tra đã nhận voucher này chưa
     const check = await pool.query(
       "SELECT * FROM uservouchers WHERE userid = $1 AND voucherid = $2",
       [userId, voucherId]
@@ -197,12 +187,20 @@ router.post("/assign", async (req, res) => {
       console.log("User đã nhận voucher này rồi");
       return res.status(409).json({ error: "Bạn đã nhận voucher này rồi" });
     }
-    // Lưu voucher cho user
+
+    // 4. Lưu voucher cho user
     await pool.query(
       "INSERT INTO uservouchers (userid, voucherid, isused, assignedat) VALUES ($1, $2, $3, NOW())",
       [userId, voucherId, false]
     );
-    console.log("Đã lưu voucher cho user:", userId, voucherId);
+
+    // 5. Trừ số lượng voucher
+    await pool.query(
+      "UPDATE vouchers SET quantity = quantity - 1 WHERE voucherid = $1 AND quantity > 0",
+      [voucherId]
+    );
+
+    console.log("Đã lưu voucher và trừ số lượng:", userId, voucherId);
     res.json({ success: true, message: "Đã lưu voucher cho user" });
   } catch (err) {
     console.error("Lỗi khi assign voucher:", err);
