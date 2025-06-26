@@ -173,8 +173,13 @@ router.get("/user", async (req, res) => {
        ORDER BY uv.assignedat DESC`,
       [userId]
     );
+    const result = vouchers.rows.map(v => ({
+      ...v,
+      collectedAt: v.assignedat ? new Date(v.assignedat).getTime() : null
+    }));
+    res.json(result);
+
     console.log("[GET USER VOUCHERS] Danh sách vouchers:", vouchers.rows);
-    res.json(vouchers.rows);
   } catch (err) {
     console.error("[GET USER VOUCHERS] Lỗi:", err);
     res.status(500).json({ error: err.message });
