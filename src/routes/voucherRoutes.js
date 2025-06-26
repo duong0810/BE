@@ -210,6 +210,36 @@ router.post("/assign", async (req, res) => {
   }
 });
 
+// Thống kê chi tiết voucher đã thu thập theo từng user (admin)
+router.get("/stats/collected-detail", authMiddleware, async (req, res) => {
+  try {
+    const pool = await getPool();
+    const result = await pool.query(`
+      SELECT 
+        u.userid, 
+        u.zaloid, 
+        u.username, 
+        u.fullname, 
+        uv.uservoucherid,
+        uv.voucherid,
+        v.code,
+        v.description,
+        v.category,
+        v.expirydate,
+        uv.isused,
+        uv.assignedat,
+        uv.usedat
+      FROM users u
+      LEFT JOIN uservouchers uv ON u.userid = uv.userid
+      LEFT JOIN vouchers v ON uv.voucherid = v.voucherid
+      ORDER BY u.userid, uv.assignedat DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ĐẶT CÁC ROUTE ĐỘNG Ở CUỐI FILE
 router.get("/", getAllVouchers);
 router.get("/:id", findVoucher);
