@@ -97,7 +97,7 @@ router.post("/claim", async (req, res) => {
 
     if (userResult.rows.length === 0) {
       console.log("[CLAIM] Không tìm thấy user với zaloId:", zaloId);
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "Không tìm thấy người dùng " });
     }
     const userId = userResult.rows[0].userid;
 
