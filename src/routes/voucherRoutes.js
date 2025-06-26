@@ -41,42 +41,6 @@ router.get("/category/:category", async (req, res) => {
   }
 });
 
-// // Route thu thập voucher (giảm số lượng, lưu log)
-// router.post("/collect", async (req, res) => {
-//   const { voucherId, userId } = req.body;
-//   if (!voucherId || !userId) {
-//     return res.status(400).json({
-//       error: "Thiếu tham số bắt buộc: voucherId và userId là bắt buộc"
-//     });
-//   }
-//   try {
-//     const pool = await getPool();
-//     // PostgreSQL stored procedure call
-//     const result = await pool.query(
-//       'SELECT sp_AssignVoucherToUser($1, $2) as result',
-//       [parseInt(userId, 10), voucherId]
-//     );
-
-//     const assignResult = result.rows[0].result;
-//     if (assignResult === 1) {
-//       res.json({ success: true });
-//     } else if (assignResult === -1) {
-//       res.status(400).json({ error: "Voucher không tồn tại" });
-//     } else if (assignResult === -2) {
-//       res.status(400).json({ error: "Voucher đã hết số lượng" });
-//     } else if (assignResult === -3) {
-//       res.status(400).json({ error: "Voucher đã hết hạn" });
-//     } else if (assignResult === -4) {
-//       res.status(400).json({ error: "Bạn đã sở hữu voucher này" });
-//     } else {
-//       res.status(500).json({ error: "Lỗi không xác định" });
-//     }
-//   } catch (err) {
-//     console.error("Lỗi SQL trong route /collect:", err);
-//     res.status(500).json({ error: err.message });
-//   }
-// });
-
 // --- API CLAIM VOUCHER ---
 router.post("/claim", async (req, res) => {
   const { zaloId, voucherId } = req.body;
@@ -128,10 +92,10 @@ router.post("/claim", async (req, res) => {
       [voucherId]
     );
 
-    // Lưu voucher cho user
+    // Lưu voucher cho user (bổ sung isused, assignedat)
     await pool.query(
-      "INSERT INTO uservouchers (userid, voucherid) VALUES ($1, $2)",
-      [userId, voucherId]
+      "INSERT INTO uservouchers (userid, voucherid, isused, assignedat) VALUES ($1, $2, $3, NOW())",
+      [userId, voucherId, false]
     );
     console.log("[CLAIM] Đã lưu voucher cho user:", userId, voucherId);
     res.json({ success: true, message: "Nhận voucher thành công" });
@@ -173,8 +137,12 @@ router.get("/user", async (req, res) => {
        ORDER BY uv.assignedat DESC`,
       [userId]
     );
-    console.log("[GET USER VOUCHERS] Danh sách vouchers:", vouchers.rows);
-    res.json(vouchers.rows);
+    // Thêm trường collectedAt (timestamp mili giây)
+    const result = vouchers.rows.map(v => ({
+      ...v,
+      collectedAt: v.assignedat ? new Date(v.assignedat).getTime() : null
+    }));
+    res.json(result);
   } catch (err) {
     console.error("[GET USER VOUCHERS] Lỗi:", err);
     res.status(500).json({ error: err.message });
