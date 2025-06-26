@@ -41,41 +41,41 @@ router.get("/category/:category", async (req, res) => {
   }
 });
 
-// Route thu thập voucher (giảm số lượng, lưu log)
-router.post("/collect", async (req, res) => {
-  const { voucherId, userId } = req.body;
-  if (!voucherId || !userId) {
-    return res.status(400).json({
-      error: "Thiếu tham số bắt buộc: voucherId và userId là bắt buộc"
-    });
-  }
-  try {
-    const pool = await getPool();
-    // PostgreSQL stored procedure call
-    const result = await pool.query(
-      'SELECT sp_AssignVoucherToUser($1, $2) as result',
-      [parseInt(userId, 10), voucherId]
-    );
+// // Route thu thập voucher (giảm số lượng, lưu log)
+// router.post("/collect", async (req, res) => {
+//   const { voucherId, userId } = req.body;
+//   if (!voucherId || !userId) {
+//     return res.status(400).json({
+//       error: "Thiếu tham số bắt buộc: voucherId và userId là bắt buộc"
+//     });
+//   }
+//   try {
+//     const pool = await getPool();
+//     // PostgreSQL stored procedure call
+//     const result = await pool.query(
+//       'SELECT sp_AssignVoucherToUser($1, $2) as result',
+//       [parseInt(userId, 10), voucherId]
+//     );
 
-    const assignResult = result.rows[0].result;
-    if (assignResult === 1) {
-      res.json({ success: true });
-    } else if (assignResult === -1) {
-      res.status(400).json({ error: "Voucher không tồn tại" });
-    } else if (assignResult === -2) {
-      res.status(400).json({ error: "Voucher đã hết số lượng" });
-    } else if (assignResult === -3) {
-      res.status(400).json({ error: "Voucher đã hết hạn" });
-    } else if (assignResult === -4) {
-      res.status(400).json({ error: "Bạn đã sở hữu voucher này" });
-    } else {
-      res.status(500).json({ error: "Lỗi không xác định" });
-    }
-  } catch (err) {
-    console.error("Lỗi SQL trong route /collect:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
+//     const assignResult = result.rows[0].result;
+//     if (assignResult === 1) {
+//       res.json({ success: true });
+//     } else if (assignResult === -1) {
+//       res.status(400).json({ error: "Voucher không tồn tại" });
+//     } else if (assignResult === -2) {
+//       res.status(400).json({ error: "Voucher đã hết số lượng" });
+//     } else if (assignResult === -3) {
+//       res.status(400).json({ error: "Voucher đã hết hạn" });
+//     } else if (assignResult === -4) {
+//       res.status(400).json({ error: "Bạn đã sở hữu voucher này" });
+//     } else {
+//       res.status(500).json({ error: "Lỗi không xác định" });
+//     }
+//   } catch (err) {
+//     console.error("Lỗi SQL trong route /collect:", err);
+//     res.status(500).json({ error: err.message });
+//   }
+// });
 
 // --- API CLAIM VOUCHER ---
 router.post("/claim", async (req, res) => {
@@ -112,6 +112,22 @@ router.post("/claim", async (req, res) => {
       console.log("[CLAIM] User đã nhận voucher này rồi");
       return res.status(409).json({ error: "Bạn đã nhận voucher này rồi" });
     }
+
+    // Kiểm tra số lượng voucher còn không
+    const voucherResult = await pool.query(
+      "SELECT quantity FROM vouchers WHERE voucherid = $1",
+      [voucherId]
+    );
+    if (voucherResult.rows.length === 0 || voucherResult.rows[0].quantity <= 0) {
+      return res.status(409).json({ error: "Voucher đã hết lượt!" });
+    }
+
+    // Trừ số lượng voucher
+    await pool.query(
+      "UPDATE vouchers SET quantity = quantity - 1 WHERE voucherid = $1 AND quantity > 0",
+      [voucherId]
+    );
+
     // Lưu voucher cho user
     await pool.query(
       "INSERT INTO uservouchers (userid, voucherid) VALUES ($1, $2)",
@@ -197,6 +213,22 @@ router.post("/assign", async (req, res) => {
       console.log("User đã nhận voucher này rồi");
       return res.status(409).json({ error: "Bạn đã nhận voucher này rồi" });
     }
+
+    // Kiểm tra số lượng voucher còn không
+    const voucherResult = await pool.query(
+      "SELECT quantity FROM vouchers WHERE voucherid = $1",
+      [voucherId]
+    );
+    if (voucherResult.rows.length === 0 || voucherResult.rows[0].quantity <= 0) {
+      return res.status(409).json({ error: "Voucher đã hết lượt!" });
+    }
+
+    // Trừ số lượng voucher
+    await pool.query(
+      "UPDATE vouchers SET quantity = quantity - 1 WHERE voucherid = $1 AND quantity > 0",
+      [voucherId]
+    );
+
     // Lưu voucher cho user
     await pool.query(
       "INSERT INTO uservouchers (userid, voucherid, isused, assignedat) VALUES ($1, $2, $3, NOW())",
