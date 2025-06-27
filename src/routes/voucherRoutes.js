@@ -20,7 +20,7 @@ const router = express.Router();
 router.get("/spin", spinVoucher);
 
 // Route quay vòng quay (spin) với giới hạn lượt quay
-router.post("/vouchers/spin-wheel-limit", spinWheelWithLimit);
+router.post("/spin-wheel-limit", spinWheelWithLimit);
 
 // Route lấy banner headers
 router.get("/banner-headers", getBannerHeaders);
