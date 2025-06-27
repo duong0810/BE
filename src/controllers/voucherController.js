@@ -321,3 +321,76 @@ export const updateBannerHeaders = async (req, res) => {
     });
   }
 };
+
+// API quay vòng quay giới hạn 2 lần mỗi user (dùng bảng UserVouchers)
+export const spinWheelWithLimit = async (req, res) => {
+  try {
+    const { zaloId } = req.body;
+    if (!zaloId) return res.status(400).json({ error: "Thiếu zaloId" });
+
+    const pool = await getPool();
+
+    // Lấy UserID từ ZaloID
+    const userResult = await pool.query(
+      "SELECT UserID FROM Users WHERE ZaloID = $1",
+      [zaloId]
+    );
+    const user = userResult.rows[0];
+    if (!user) return res.status(404).json({ error: "Không tìm thấy user" });
+
+    // Đếm số lượt quay "wheel" đã dùng
+    const countResult = await pool.query(
+      `SELECT COUNT(*) FROM UserVouchers uv
+       JOIN Vouchers v ON uv.VoucherID = v.VoucherID
+       WHERE uv.UserID = $1 AND v.Category = 'wheel'`,
+      [user.userid]
+    );
+    const spinCount = parseInt(countResult.rows[0].count, 10);
+
+    if (spinCount >= 2) {
+      return res.status(409).json({ error: "Bạn đã hết lượt quay!" });
+    }
+
+    // Random voucher loại "wheel" theo xác suất như cũ
+    const voucherResult = await pool.query(`
+      SELECT * FROM Vouchers 
+      WHERE IsActive = true AND Probability IS NOT NULL AND Probability > 0 AND Category = 'wheel'
+      ORDER BY RANDOM()
+    `);
+    const vouchers = voucherResult.rows;
+    if (vouchers.length === 0) {
+      return res.status(404).json({ error: "No voucher available" });
+    }
+    const totalProb = vouchers.reduce((sum, v) => sum + Number(v.probability), 0);
+    const ranges = [];
+    let accumulator = 0;
+    vouchers.forEach(voucher => {
+      const prob = Number(voucher.probability);
+      ranges.push({
+        voucher: voucher,
+        start: accumulator,
+        end: accumulator + prob,
+        probability: prob
+      });
+      accumulator += prob;
+    });
+    const randomValue = Math.random() * totalProb;
+    const winner = ranges.find(range =>
+      randomValue >= range.start && randomValue < range.end
+    );
+    if (!winner) {
+      return res.status(500).json({ error: "Không tìm được voucher phù hợp" });
+    }
+
+    // Lưu lượt quay vào UserVouchers
+    await pool.query(
+      `INSERT INTO UserVouchers (UserID, VoucherID) VALUES ($1, $2)`,
+      [user.userid, winner.voucher.voucherid]
+    );
+
+    return res.json({ voucher: winner.voucher });
+  } catch (err) {
+    console.error("Error in spinWheelWithLimit:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
