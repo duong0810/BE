@@ -11,12 +11,16 @@ import {
 import { authMiddleware } from "../middlewares/auth.js";
 import multer from "multer";
 import { getBannerHeaders, updateBannerHeaders } from "../controllers/voucherController.js";
+import { spinWheelWithLimit } from "../controllers/voucherController.js";
 
 const upload = multer({ dest: "uploads/" });
 
 const router = express.Router();
 
 router.get("/spin", spinVoucher);
+
+//
+router.post("/spin-wheel-limit", spinWheelWithLimit);
 
 // Route lấy banner headers
 router.get("/banner-headers", getBannerHeaders);
