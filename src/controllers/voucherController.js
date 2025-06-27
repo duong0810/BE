@@ -195,10 +195,38 @@ function generateVoucherCode(length = 7) {
   return code;
 }
 
-// Hàm quay random voucher theo xác suất
 export const spinVoucher = async (req, res) => {
   try {
     const pool = await getPool();
+
+    // Lấy zaloId từ query hoặc body
+    const zaloId = req.query.zaloId || req.body.zaloId;
+    if (!zaloId) {
+      return res.status(400).json({ error: "Thiếu zaloId" });
+    }
+
+    // Lấy userid từ zaloId
+    const userResult = await pool.query(
+      "SELECT userid FROM users WHERE zaloid = $1",
+      [zaloId]
+    );
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "Không tìm thấy user" });
+    }
+    const userId = userResult.rows[0].userid;
+
+    // Đếm số lượt quay đã dùng (chỉ tính voucher category = 'wheel')
+    const spinCountResult = await pool.query(
+      `SELECT COUNT(*) FROM uservouchers uv
+       JOIN vouchers v ON uv.voucherid = v.voucherid
+       WHERE uv.userid = $1 AND v.category = 'wheel'`,
+      [userId]
+    );
+    const spinCount = parseInt(spinCountResult.rows[0].count, 10);
+
+    if (spinCount >= 2) {
+      return res.status(403).json({ error: "Bạn đã hết lượt quay!" });
+    }
     
     // Lấy voucher với ORDER BY RANDOM() để random thứ tự (PostgreSQL)
     const result = await pool.query(`
