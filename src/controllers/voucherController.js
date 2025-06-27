@@ -199,11 +199,39 @@ function generateVoucherCode(length = 7) {
 export const spinVoucher = async (req, res) => {
   try {
     const pool = await getPool();
-    
-    // Lấy voucher với ORDER BY RANDOM() để random thứ tự (PostgreSQL)
+    // Lấy zaloId từ query hoặc body
+    const zaloId = req.query.zaloId || req.body.zaloId;
+    if (!zaloId) {
+      return res.status(400).json({ error: "Thiếu zaloId" });
+    }
+
+    // Lấy userid từ zaloId
+    const userResult = await pool.query(
+      "SELECT userid FROM users WHERE zaloid = $1",
+      [zaloId]
+    );
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "Không tìm thấy user" });
+    }
+    const userId = userResult.rows[0].userid;
+
+    // Đếm số lượt quay đã dùng (chỉ tính voucher category = 'wheel')
+    const spinCountResult = await pool.query(
+      `SELECT COUNT(*) FROM uservouchers uv
+       JOIN vouchers v ON uv.voucherid = v.voucherid
+       WHERE uv.userid = $1 AND v.category = 'wheel'`,
+      [userId]
+    );
+    const spinCount = parseInt(spinCountResult.rows[0].count, 10);
+
+    if (spinCount >= 2) {
+      return res.status(403).json({ error: "Bạn đã hết lượt quay!" });
+    }
+
+    // Lấy danh sách voucher quay (category = 'wheel', còn quantity)
     const result = await pool.query(`
       SELECT * FROM Vouchers 
-      WHERE IsActive = true AND Probability IS NOT NULL AND Probability > 0
+      WHERE IsActive = true AND Probability IS NOT NULL AND Probability > 0 AND Category = 'wheel' AND Quantity > 0
       ORDER BY RANDOM()
     `);
     const vouchers = result.rows;
@@ -218,14 +246,9 @@ export const spinVoucher = async (req, res) => {
       return res.status(404).json({ message: "No voucher available" });
     }
 
-    console.log("📊 SPIN DEBUG INFO:");
-    console.log("Total vouchers:", vouchers.length);
-    console.log("Total probability:", totalProb);
-    
-    // Tạo ranges chính xác
+    // Tạo ranges xác suất
     const ranges = [];
     let accumulator = 0;
-    
     vouchers.forEach(voucher => {
       const prob = Number(voucher.probability);
       ranges.push({
@@ -239,20 +262,27 @@ export const spinVoucher = async (req, res) => {
 
     // Random value
     const randomValue = Math.random() * totalProb;
-    console.log(`🎲 Random value: ${randomValue} (out of ${totalProb})`);
-
-    // Tìm winner
     const winner = ranges.find(range => 
       randomValue >= range.start && randomValue < range.end
     );
 
-    if (winner) {
-      console.log(`🏆 WINNER: ${winner.voucher.code}`);
-      return res.json({ voucher: winner.voucher });
+    if (!winner) {
+      return res.status(500).json({ error: "Không tìm được voucher trúng!" });
     }
 
-    console.log("❌ No winner found");
-    res.json({ voucher: null });
+    // Trừ số lượng voucher
+    await pool.query(
+      "UPDATE vouchers SET quantity = quantity - 1 WHERE voucherid = $1 AND quantity > 0",
+      [winner.voucher.voucherid]
+    );
+
+    // Lưu voucher cho user
+    await pool.query(
+      "INSERT INTO uservouchers (userid, voucherid, isused, assignedat) VALUES ($1, $2, $3, NOW())",
+      [userId, winner.voucher.voucherid, false]
+    );
+
+    res.json({ success: true, voucher: winner.voucher });
   } catch (err) {
     console.error("Error in spin:", err);
     res.status(500).json({ error: err.message });
