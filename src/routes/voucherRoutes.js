@@ -9,6 +9,7 @@ import {
   spinVoucher
 } from "../controllers/voucherController.js";
 import { authMiddleware } from "../middlewares/auth.js";
+import { getUserFromZaloId } from "../middlewares/zaloAuth.js";
 import multer from "multer";
 import { getBannerHeaders, updateBannerHeaders } from "../controllers/voucherController.js";
 import { spinWheelWithLimit } from "../controllers/voucherController.js";
@@ -41,6 +42,110 @@ router.get("/category/:category", async (req, res) => {
     );
     res.json(result.rows);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- API LẤY VOUCHER THEO CATEGORY VỚI SỐ LƯỢNG ĐÃ THU THẬP CỦA USER ---
+router.get("/category/:category/user/:zaloId", async (req, res) => {
+  const { category, zaloId } = req.params;
+  console.log("[GET VOUCHERS WITH USER COUNT] Category:", category, "ZaloId:", zaloId);
+
+  try {
+    const pool = await getPool();
+    
+    // Lấy userid từ zaloId
+    const userResult = await pool.query(
+      "SELECT userid FROM users WHERE zaloid = $1",
+      [zaloId]
+    );
+    
+    if (userResult.rows.length === 0) {
+      // Nếu user không tồn tại, trả về voucher với quantity = 0
+      const vouchersResult = await pool.query(
+        `SELECT v.*, 0 as user_collected_count 
+         FROM vouchers v 
+         WHERE v.category = $1`,
+        [category]
+      );
+      return res.json(vouchersResult.rows);
+    }
+    
+    const userId = userResult.rows[0].userid;
+    
+    // Query lấy voucher kèm số lượng đã thu thập của user
+    const result = await pool.query(
+      `SELECT 
+        v.*,
+        COALESCE(COUNT(uv.uservoucherid), 0) as user_collected_count
+       FROM vouchers v
+       LEFT JOIN uservouchers uv ON v.voucherid = uv.voucherid AND uv.userid = $1
+       WHERE v.category = $2
+       GROUP BY v.voucherid, v.code, v.description, v.discount, v.type, v.quantity, v.minorder, v.maxdiscount, v.expirydate, v.isactive, v.category, v.probability, v.image, v.createdat, v.updatedat
+       ORDER BY v.createdat DESC`,
+      [userId, category]
+    );
+    
+    console.log("[GET VOUCHERS WITH USER COUNT] Result:", result.rows);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("[GET VOUCHERS WITH USER COUNT] Lỗi:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- API LẤY TẤT CẢ VOUCHER VỚI SỐ LƯỢNG ĐÃ THU THẬP CỦA USER ---
+router.get("/with-user-count", async (req, res) => {
+  const { zaloId } = req.query;
+  console.log("[GET ALL VOUCHERS WITH USER COUNT] ZaloId:", zaloId);
+
+  try {
+    const pool = await getPool();
+    
+    if (!zaloId) {
+      // Nếu không có zaloId, trả về voucher bình thường
+      const result = await pool.query('SELECT * FROM vouchers ORDER BY createdat DESC');
+      const vouchersWithCount = result.rows.map(v => ({
+        ...v,
+        user_collected_count: 0
+      }));
+      return res.json(vouchersWithCount);
+    }
+    
+    // Lấy userid từ zaloId
+    const userResult = await pool.query(
+      "SELECT userid FROM users WHERE zaloid = $1",
+      [zaloId]
+    );
+    
+    if (userResult.rows.length === 0) {
+      // Nếu user không tồn tại, trả về voucher với quantity = 0
+      const vouchersResult = await pool.query('SELECT * FROM vouchers ORDER BY createdat DESC');
+      const vouchersWithCount = vouchersResult.rows.map(v => ({
+        ...v,
+        user_collected_count: 0
+      }));
+      return res.json(vouchersWithCount);
+    }
+    
+    const userId = userResult.rows[0].userid;
+    
+    // Query lấy tất cả voucher kèm số lượng đã thu thập của user
+    const result = await pool.query(
+      `SELECT 
+        v.*,
+        COALESCE(COUNT(uv.uservoucherid), 0) as user_collected_count
+       FROM vouchers v
+       LEFT JOIN uservouchers uv ON v.voucherid = uv.voucherid AND uv.userid = $1
+       GROUP BY v.voucherid, v.code, v.description, v.discount, v.type, v.quantity, v.minorder, v.maxdiscount, v.expirydate, v.isactive, v.category, v.probability, v.image, v.createdat, v.updatedat
+       ORDER BY v.createdat DESC`,
+      [userId]
+    );
+    
+    console.log("[GET ALL VOUCHERS WITH USER COUNT] Result count:", result.rows.length);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("[GET ALL VOUCHERS WITH USER COUNT] Lỗi:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -240,6 +345,72 @@ router.get("/stats/collected-detail", authMiddleware, async (req, res) => {
     `);
     res.json(result.rows);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// API kiểm tra trạng thái user và số lượng voucher đã thu thập
+router.get("/user-stats/:zaloId", async (req, res) => {
+  const { zaloId } = req.params;
+  
+  try {
+    const pool = await getPool();
+    
+    // Lấy thông tin user
+    const userResult = await pool.query(
+      "SELECT * FROM users WHERE zaloid = $1",
+      [zaloId]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User không tồn tại" });
+    }
+    
+    const user = userResult.rows[0];
+    const userId = user.userid;
+    
+    // Đếm tổng số voucher đã thu thập
+    const totalVouchersResult = await pool.query(
+      "SELECT COUNT(*) as total_collected FROM uservouchers WHERE userid = $1",
+      [userId]
+    );
+    
+    // Đếm voucher theo category
+    const vouchersByCategoryResult = await pool.query(
+      `SELECT v.category, COUNT(*) as count 
+       FROM uservouchers uv 
+       JOIN vouchers v ON uv.voucherid = v.voucherid 
+       WHERE uv.userid = $1 
+       GROUP BY v.category`,
+      [userId]
+    );
+    
+    // Đếm voucher đã sử dụng
+    const usedVouchersResult = await pool.query(
+      "SELECT COUNT(*) as used_count FROM uservouchers WHERE userid = $1 AND isused = true",
+      [userId]
+    );
+    
+    res.json({
+      success: true,
+      user: {
+        userId: user.userid,
+        zaloId: user.zaloid,
+        username: user.username,
+        fullname: user.fullname,
+        avatar: user.avatar,
+        phone: user.phone,
+        status: user.status
+      },
+      stats: {
+        totalCollected: parseInt(totalVouchersResult.rows[0].total_collected),
+        usedVouchers: parseInt(usedVouchersResult.rows[0].used_count),
+        vouchersByCategory: vouchersByCategoryResult.rows
+      }
+    });
+    
+  } catch (err) {
+    console.error("Lỗi khi lấy thống kê user:", err);
     res.status(500).json({ error: err.message });
   }
 });
