@@ -77,7 +77,7 @@ router.post('/auth', async (req, res) => {
       userData = updateResult.rows[0];
     }
 
-    // Tạo JWT token sử dụng generateZaloToken
+    // Tạo JWT token
     const jwtToken = generateZaloToken(userData);
 
     res.json({
@@ -91,7 +91,8 @@ router.post('/auth', async (req, res) => {
         fullname: userData.fullname,
         phone: userData.phone,
         avatar: userData.avatar,
-        role: userData.role
+        role: userData.role,
+        status: userData.status
       }
     });
 
