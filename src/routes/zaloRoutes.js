@@ -127,7 +127,7 @@ router.put('/update', verifyZaloToken, async (req, res) => {
     
     const updateResult = await pool.query(
       `UPDATE users 
-       SET name = $2, phone = $3, updated_at = NOW()
+       SET fullname = $2, phone = $3, updatedat = NOW()
        WHERE zaloid = $1 
        RETURNING *`,
       [req.user.zaloId, name, phone]
