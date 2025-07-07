@@ -9,9 +9,9 @@ import { connectDB } from "./config.js";
 import voucherRoutes from "./routes/voucherRoutes.js";
 import healthRoutes from "./routes/healthRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
-import authRoutes from "./routes/authRoutes.js";
 import productRoutes from './routes/productRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
+import zaloRoutes from "./routes/zaloRoutes.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -64,7 +64,7 @@ app.use("/api/products", productRoutes);
 app.use("/api/uploads", uploadRoutes);
 
 // API auth
-app.use("/api/auth", authRoutes);
+app.use("/api/zalo", zaloRoutes);
 
 // Phục vụ tệp tĩnh từ thư mục public (chỉ cho trang login)
 app.use(express.static(path.join(__dirname, 'public')));

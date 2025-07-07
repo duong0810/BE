@@ -1,9 +1,53 @@
+import axios from "axios";
+import jwt from 'jsonwebtoken';
+import { getPool } from "../config.js";
+
+/**
+ * Tạo JWT token từ thông tin user Zalo
+ */
+export const generateZaloToken = (userData) => {
+  return jwt.sign(
+    {
+      zaloId: userData.id,
+      name: userData.name,
+      avatar: userData.picture?.data?.url,
+      phone: userData.phone,
+      birthday: userData.birthday,
+      gender: userData.gender
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+};
+
+/**
+ * Verify JWT token
+ */
+export const verifyZaloToken = (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token không được cung cấp'
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: 'Token không hợp lệ'
+    });
+  }
+};
+
 /**
  * Middleware xác thực Zalo access token
  */
-import axios from "axios";
-import { getPool } from "../config.js";
-
 export const zaloAuthMiddleware = async (req, res, next) => {
   const accessToken = req.headers['zalo-access-token'] || req.headers['access-token'];
   

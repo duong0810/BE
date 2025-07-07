@@ -1,94 +1,104 @@
-/**
- * Helper functions để làm việc với Zalo API
- */
-import axios from "axios";
+import axios from 'axios';
 
-const ZALO_API_BASE = "https://graph.zalo.me/v2.0";
+class ZaloAPI {
+  constructor() {
+    this.baseURL = 'https://graph.zalo.me';
+    this.oauthURL = 'https://oauth.zaloapp.com/v4';
+  }
 
-/**
- * Lấy thông tin user từ Zalo API
- * @param {string} accessToken - Zalo access token
- * @returns {Promise<Object>} - Thông tin user từ Zalo
- */
+  // Lấy access token từ authorization code
+  async getAccessToken(code) {
+    try {
+      const response = await axios.post(`${this.oauthURL}/access_token`, {
+        app_id: process.env.ZALO_APP_ID,
+        app_secret: process.env.ZALO_APP_SECRET,
+        code: code,
+        grant_type: 'authorization_code'
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error getting access token:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  // Lấy thông tin user profile
+  async getUserProfile(accessToken) {
+    try {
+      const response = await axios.get(`${this.baseURL}/v2.0/me`, {
+        params: {
+          access_token: accessToken,
+          fields: 'id,name,picture,birthday,gender'
+        }
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error getting user profile:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  // Lấy số điện thoại (cần permission đặc biệt)
+  async getUserPhone(accessToken) {
+    try {
+      const response = await axios.get(`${this.baseURL}/v2.0/me`, {
+        params: {
+          access_token: accessToken,
+          fields: 'id,phone'
+        }
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error getting user phone:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  // Verify access token với Zalo
+  async verifyZaloToken(accessToken) {
+    try {
+      const response = await axios.get(`${this.baseURL}/v2.0/me`, {
+        params: {
+          access_token: accessToken,
+          fields: 'id'
+        }
+      });
+      
+      return !!response.data.id;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  // Tạo authorization URL
+  getAuthorizationURL() {
+    const params = new URLSearchParams({
+      app_id: process.env.ZALO_APP_ID,
+      redirect_uri: process.env.ZALO_REDIRECT_URI,
+      state: 'random_state_string' // Nên tạo random để bảo mật
+    });
+    
+    return `${this.oauthURL}/auth?${params.toString()}`;
+  }
+}
+
+export default new ZaloAPI();
+
+// Giữ lại các helper functions để tương thích
 export const getZaloUserInfo = async (accessToken) => {
-  try {
-    const response = await axios.get(`${ZALO_API_BASE}/me`, {
-      headers: {
-        'access_token': accessToken
-      },
-      params: {
-        fields: 'id,name,picture,birthday,gender'
-      }
-    });
-    
-    return response.data;
-  } catch (error) {
-    console.error("Lỗi khi lấy thông tin user từ Zalo:", error);
-    throw error;
-  }
+  const zaloAPI = new ZaloAPI();
+  return await zaloAPI.getUserProfile(accessToken);
 };
 
-/**
- * Lấy số điện thoại của user từ Zalo API (cần quyền đặc biệt)
- * @param {string} accessToken - Zalo access token
- * @returns {Promise<Object>} - Thông tin số điện thoại
- */
 export const getZaloUserPhone = async (accessToken) => {
-  try {
-    const response = await axios.get(`${ZALO_API_BASE}/me`, {
-      headers: {
-        'access_token': accessToken
-      },
-      params: {
-        fields: 'phone'
-      }
-    });
-    
-    return response.data;
-  } catch (error) {
-    console.error("Lỗi khi lấy số điện thoại từ Zalo:", error);
-    throw error;
-  }
+  const zaloAPI = new ZaloAPI();
+  return await zaloAPI.getUserPhone(accessToken);
 };
 
-/**
- * Verify access token với Zalo
- * @param {string} accessToken - Zalo access token
- * @returns {Promise<boolean>} - True nếu token hợp lệ
- */
 export const verifyZaloToken = async (accessToken) => {
-  try {
-    const response = await axios.get(`${ZALO_API_BASE}/me`, {
-      headers: {
-        'access_token': accessToken
-      },
-      params: {
-        fields: 'id'
-      }
-    });
-    
-    return !!response.data.id;
-  } catch (error) {
-    return false;
-  }
-};
-
-/**
- * Lấy danh sách bạn bè của user (nếu có quyền)
- * @param {string} accessToken - Zalo access token
- * @returns {Promise<Object>} - Danh sách bạn bè
- */
-export const getZaloUserFriends = async (accessToken) => {
-  try {
-    const response = await axios.get(`${ZALO_API_BASE}/me/friends`, {
-      headers: {
-        'access_token': accessToken
-      }
-    });
-    
-    return response.data;
-  } catch (error) {
-    console.error("Lỗi khi lấy danh sách bạn bè từ Zalo:", error);
-    throw error;
-  }
+  const zaloAPI = new ZaloAPI();
+  return await zaloAPI.verifyZaloToken(accessToken);
 };
