@@ -1,4 +1,5 @@
 import express from 'express';
+import axios from 'axios'; // THÊM DÒNG NÀY
 import ZaloAPI from '../utils/zaloApi.js';
 import { generateZaloToken, verifyZaloToken } from '../middlewares/zaloAuth.js';
 import { getPool } from '../config.js';
@@ -8,105 +9,73 @@ const router = express.Router();
 // Route để xử lý thông tin user từ Mini App
 router.post('/auth', async (req, res) => {
   try {
-    const { userInfo } = req.body;
-    const accessToken = req.headers['zalo-access-token'] || req.headers['access-token'];
+    const { userInfo, accessToken } = req.body;
     
-    if (!accessToken) {
-      return res.status(401).json({
+    if (!userInfo || !userInfo.id) {
+      return res.status(400).json({
         success: false,
-        message: 'Thiếu Zalo access token'
+        message: 'Thông tin user không hợp lệ'
       });
     }
 
-    // Verify và lấy thông tin thật từ Zalo API
-    let realUserInfo;
-    try {
-      const userInfoResponse = await axios.get('https://graph.zalo.me/v2.0/me', {
-        headers: {
-          'access_token': accessToken
-        },
-        params: {
-          fields: 'id,name,picture,birthday,gender'
-        }
-      });
-      
-      realUserInfo = userInfoResponse.data;
-      
-      if (!realUserInfo.id) {
-        return res.status(401).json({
-          success: false,
-          message: 'Access token không hợp lệ'
-        });
-      }
-
-      // Thử lấy số điện thoại (nếu có quyền)
+    // Verify access token với Zalo (nếu có)
+    if (accessToken) {
       try {
-        const phoneResponse = await axios.get('https://graph.zalo.me/v2.0/me', {
-          headers: {
-            'access_token': accessToken
-          },
-          params: {
-            fields: 'phone'
-          }
-        });
-        
-        if (phoneResponse.data.phone) {
-          realUserInfo.phone = phoneResponse.data.phone;
+        const isValidToken = await ZaloAPI.verifyZaloToken(accessToken);
+        if (!isValidToken) {
+          return res.status(401).json({
+            success: false,
+            message: 'Access token không hợp lệ'
+          });
         }
-      } catch (phoneError) {
-        console.log('Phone permission not granted:', phoneError.message);
+      } catch (error) {
+        console.log('Token verification failed:', error.message);
       }
-    } catch (error) {
-      console.error('Zalo API verification failed:', error);
-      return res.status(401).json({
-        success: false,
-        message: 'Access token không hợp lệ hoặc đã hết hạn'
-      });
     }
 
-    // Kiểm tra và tạo/cập nhật user trong database với thông tin thật
+    // Kiểm tra và tạo/cập nhật user trong database
     const pool = await getPool();
     
     // Kiểm tra user đã tồn tại chưa
     const existingUser = await pool.query(
       "SELECT * FROM users WHERE zaloid = $1",
-      [realUserInfo.id]
+      [userInfo.id]
     );
 
     let userData;
     
     if (existingUser.rows.length === 0) {
-      // Tạo user mới với thông tin thật từ Zalo
+      // Tạo user mới
       const insertResult = await pool.query(
         `INSERT INTO users (zaloid, username, fullname, avatar, phone, birthday, gender, createdat, updatedat) 
          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()) 
          RETURNING *`,
         [
-          realUserInfo.id,
-          realUserInfo.name || `user_${realUserInfo.id}`,
-          realUserInfo.name || '',
-          realUserInfo.picture?.data?.url || '',
-          realUserInfo.phone || null,
-          realUserInfo.birthday || null,
-          realUserInfo.gender || null
+          userInfo.id,
+          userInfo.name || `user_${userInfo.id}`,
+          userInfo.name || '',
+          userInfo.avatar || '',
+          userInfo.phone || null,
+          userInfo.birthday || null,
+          userInfo.gender || null
         ]
       );
       userData = insertResult.rows[0];
     } else {
-      // Cập nhật thông tin user với data thật từ Zalo
+      // Cập nhật thông tin user
       const updateResult = await pool.query(
         `UPDATE users 
          SET username = $2, fullname = $3, avatar = $4, phone = $5, birthday = $6, gender = $7, updatedat = NOW()
          WHERE zaloid = $1 
          RETURNING *`,
         [
-          realUserInfo.id,
-          realUserInfo.name || existingUser.rows[0].username,
-          realUserInfo.name || existingUser.rows[0].fullname,
-          realUserInfo.picture?.data?.url || existingUser.rows[0].avatar,
-          realUserInfo.phone || existingUser.rows[0].phone,
-          realUserInfo.birthday || existingUser.rows[0].birthday,
-          realUserInfo.gender || existingUser.rows[0].gender
+          userInfo.id,
+          userInfo.name || existingUser.rows[0].username,
+          userInfo.name || existingUser.rows[0].fullname,
+          userInfo.avatar || existingUser.rows[0].avatar,
+          userInfo.phone || existingUser.rows[0].phone,
+          userInfo.birthday || existingUser.rows[0].birthday,
+          userInfo.gender || existingUser.rows[0].gender
         ]
       );
       userData = updateResult.rows[0];
@@ -114,25 +83,25 @@ router.post('/auth', async (req, res) => {
 
     // Tạo JWT token
     const jwtToken = generateZaloToken({
-      id: realUserInfo.id,
-      name: realUserInfo.name,
-      picture: { data: { url: realUserInfo.picture?.data?.url } },
-      phone: realUserInfo.phone,
-      birthday: realUserInfo.birthday,
-      gender: realUserInfo.gender
+      id: userInfo.id,
+      name: userInfo.name,
+      picture: { data: { url: userInfo.avatar } },
+      phone: userInfo.phone,
+      birthday: userInfo.birthday,
+      gender: userInfo.gender
     });
 
     res.json({
       success: true,
-      message: 'Đăng nhập thành công với thông tin Zalo thật',
+      message: 'Đăng nhập thành công',
       token: jwtToken,
       user: {
-        id: realUserInfo.id,
-        name: realUserInfo.name,
-        avatar: realUserInfo.picture?.data?.url || '',
-        phone: realUserInfo.phone || '',
-        birthday: realUserInfo.birthday,
-        gender: realUserInfo.gender
+        id: userInfo.id,
+        name: userInfo.name,
+        avatar: userInfo.avatar,
+        phone: userInfo.phone,
+        birthday: userInfo.birthday,
+        gender: userInfo.gender
       }
     });
 
