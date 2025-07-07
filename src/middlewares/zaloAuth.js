@@ -8,12 +8,13 @@ import { getPool } from "../config.js";
 export const generateZaloToken = (userData) => {
   return jwt.sign(
     {
-      zaloId: userData.id,
-      name: userData.name,
-      avatar: userData.picture?.data?.url,
+      userId: userData.userid,
+      zaloid: userData.zaloid,
+      username: userData.username,
+      fullname: userData.fullname,
+      role: userData.role,
       phone: userData.phone,
-      birthday: userData.birthday,
-      gender: userData.gender
+      avatar: userData.avatar
     },
     process.env.JWT_SECRET,
     { expiresIn: '7d' }

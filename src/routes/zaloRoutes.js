@@ -1,12 +1,12 @@
 import express from 'express';
-import axios from 'axios'; // THÊM DÒNG NÀY
+import axios from 'axios';
 import ZaloAPI from '../utils/zaloApi.js';
 import { generateZaloToken, verifyZaloToken } from '../middlewares/zaloAuth.js';
 import { getPool } from '../config.js';
 
 const router = express.Router();
 
-// Route để xử lý thông tin user từ Mini App
+// Route để xử lý đăng nhập từ Zalo Mini App
 router.post('/auth', async (req, res) => {
   try {
     const { userInfo, accessToken } = req.body;
@@ -47,17 +47,16 @@ router.post('/auth', async (req, res) => {
     if (existingUser.rows.length === 0) {
       // Tạo user mới
       const insertResult = await pool.query(
-        `INSERT INTO users (zaloid, username, fullname, avatar, phone, birthday, gender, createdat, updatedat) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()) 
+        `INSERT INTO users (zaloid, username, fullname, email, phone, avatar, role, status, createdat, updatedat) 
+         VALUES ($1, $2, $3, $4, $5, $6, 'user', 'active', NOW(), NOW()) 
          RETURNING *`,
         [
           userInfo.id,
-          userInfo.name || `user_${userInfo.id}`,
+          userInfo.name || `zalo_user_${userInfo.id}`,
           userInfo.name || '',
-          userInfo.avatar || '',
+          userInfo.email || null,
           userInfo.phone || null,
-          userInfo.birthday || null,
-          userInfo.gender || null
+          userInfo.avatar || ''
         ]
       );
       userData = insertResult.rows[0];
@@ -65,43 +64,34 @@ router.post('/auth', async (req, res) => {
       // Cập nhật thông tin user
       const updateResult = await pool.query(
         `UPDATE users 
-         SET username = $2, fullname = $3, avatar = $4, phone = $5, birthday = $6, gender = $7, updatedat = NOW()
+         SET fullname = $2, phone = $3, avatar = $4, updatedat = NOW()
          WHERE zaloid = $1 
          RETURNING *`,
         [
           userInfo.id,
-          userInfo.name || existingUser.rows[0].username,
           userInfo.name || existingUser.rows[0].fullname,
-          userInfo.avatar || existingUser.rows[0].avatar,
           userInfo.phone || existingUser.rows[0].phone,
-          userInfo.birthday || existingUser.rows[0].birthday,
-          userInfo.gender || existingUser.rows[0].gender
+          userInfo.avatar || existingUser.rows[0].avatar
         ]
       );
       userData = updateResult.rows[0];
     }
 
-    // Tạo JWT token
-    const jwtToken = generateZaloToken({
-      id: userInfo.id,
-      name: userInfo.name,
-      picture: { data: { url: userInfo.avatar } },
-      phone: userInfo.phone,
-      birthday: userInfo.birthday,
-      gender: userInfo.gender
-    });
+    // Tạo JWT token sử dụng generateZaloToken
+    const jwtToken = generateZaloToken(userData);
 
     res.json({
       success: true,
       message: 'Đăng nhập thành công',
       token: jwtToken,
       user: {
-        id: userInfo.id,
-        name: userInfo.name,
-        avatar: userInfo.avatar,
-        phone: userInfo.phone,
-        birthday: userInfo.birthday,
-        gender: userInfo.gender
+        id: userData.userid,
+        zaloid: userData.zaloid,
+        username: userData.username,
+        fullname: userData.fullname,
+        phone: userData.phone,
+        avatar: userData.avatar,
+        role: userData.role
       }
     });
 
@@ -109,7 +99,8 @@ router.post('/auth', async (req, res) => {
     console.error('Zalo auth error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi xử lý đăng nhập'
+      message: 'Lỗi xử lý đăng nhập',
+      error: error.message
     });
   }
 });
@@ -133,7 +124,7 @@ router.put('/update', verifyZaloToken, async (req, res) => {
        SET fullname = $2, phone = $3, updatedat = NOW()
        WHERE zaloid = $1 
        RETURNING *`,
-      [req.user.zaloId, name, phone]
+      [req.user.zaloid, name, phone]
     );
 
     if (updateResult.rows.length === 0) {
