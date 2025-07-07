@@ -46,7 +46,7 @@ router.post('/auth', async (req, res) => {
     if (existingUser.rows.length === 0) {
       // Tạo user mới
       const insertResult = await pool.query(
-        `INSERT INTO users (zaloid, name, avatar, phone, birthday, gender, created_at, updated_at) 
+        `INSERT INTO users (zaloid, fullname, avatar, phone, birthday, gender, createdat, updatedat) 
          VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) 
          RETURNING *`,
         [
@@ -63,12 +63,12 @@ router.post('/auth', async (req, res) => {
       // Cập nhật thông tin user
       const updateResult = await pool.query(
         `UPDATE users 
-         SET name = $2, avatar = $3, phone = $4, birthday = $5, gender = $6, updated_at = NOW()
+         SET fullname = $2, avatar = $3, phone = $4, birthday = $5, gender = $6, updatedat = NOW()
          WHERE zaloid = $1 
          RETURNING *`,
         [
           userInfo.id,
-          userInfo.name || existingUser.rows[0].name,
+          userInfo.name || existingUser.rows[0].fullname,
           userInfo.avatar || existingUser.rows[0].avatar,
           userInfo.phone || existingUser.rows[0].phone,
           userInfo.birthday || existingUser.rows[0].birthday,
