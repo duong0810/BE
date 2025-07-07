@@ -8,73 +8,105 @@ const router = express.Router();
 // Route để xử lý thông tin user từ Mini App
 router.post('/auth', async (req, res) => {
   try {
-    const { userInfo, accessToken } = req.body;
+    const { userInfo } = req.body;
+    const accessToken = req.headers['zalo-access-token'] || req.headers['access-token'];
     
-    if (!userInfo || !userInfo.id) {
-      return res.status(400).json({
+    if (!accessToken) {
+      return res.status(401).json({
         success: false,
-        message: 'Thông tin user không hợp lệ'
+        message: 'Thiếu Zalo access token'
       });
     }
 
-    // Verify access token với Zalo (nếu có)
-    if (accessToken) {
-      try {
-        const isValidToken = await ZaloAPI.verifyZaloToken(accessToken);
-        if (!isValidToken) {
-          return res.status(401).json({
-            success: false,
-            message: 'Access token không hợp lệ'
-          });
+    // Verify và lấy thông tin thật từ Zalo API
+    let realUserInfo;
+    try {
+      const userInfoResponse = await axios.get('https://graph.zalo.me/v2.0/me', {
+        headers: {
+          'access_token': accessToken
+        },
+        params: {
+          fields: 'id,name,picture,birthday,gender'
         }
-      } catch (error) {
-        console.log('Token verification failed:', error.message);
+      });
+      
+      realUserInfo = userInfoResponse.data;
+      
+      if (!realUserInfo.id) {
+        return res.status(401).json({
+          success: false,
+          message: 'Access token không hợp lệ'
+        });
       }
+
+      // Thử lấy số điện thoại (nếu có quyền)
+      try {
+        const phoneResponse = await axios.get('https://graph.zalo.me/v2.0/me', {
+          headers: {
+            'access_token': accessToken
+          },
+          params: {
+            fields: 'phone'
+          }
+        });
+        
+        if (phoneResponse.data.phone) {
+          realUserInfo.phone = phoneResponse.data.phone;
+        }
+      } catch (phoneError) {
+        console.log('Phone permission not granted:', phoneError.message);
+      }
+    } catch (error) {
+      console.error('Zalo API verification failed:', error);
+      return res.status(401).json({
+        success: false,
+        message: 'Access token không hợp lệ hoặc đã hết hạn'
+      });
     }
 
-    // Kiểm tra và tạo/cập nhật user trong database
+    // Kiểm tra và tạo/cập nhật user trong database với thông tin thật
     const pool = await getPool();
     
     // Kiểm tra user đã tồn tại chưa
     const existingUser = await pool.query(
       "SELECT * FROM users WHERE zaloid = $1",
-      [userInfo.id]
+      [realUserInfo.id]
     );
 
     let userData;
     
     if (existingUser.rows.length === 0) {
-      // Tạo user mới
+      // Tạo user mới với thông tin thật từ Zalo
       const insertResult = await pool.query(
         `INSERT INTO users (zaloid, username, fullname, avatar, phone, birthday, gender, createdat, updatedat) 
          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()) 
          RETURNING *`,
         [
-          userInfo.id,
-          userInfo.name || `user_${userInfo.id}`, // Thêm username
-          userInfo.name || '',
-          userInfo.avatar || '',
-          userInfo.phone || null,
-          userInfo.birthday || null,
-          userInfo.gender || null
+          realUserInfo.id,
+          realUserInfo.name || `user_${realUserInfo.id}`,
+          realUserInfo.name || '',
+          realUserInfo.picture?.data?.url || '',
+          realUserInfo.phone || null,
+          realUserInfo.birthday || null,
+          realUserInfo.gender || null
         ]
       );
       userData = insertResult.rows[0];
     } else {
-      // Cập nhật thông tin user
+      // Cập nhật thông tin user với data thật từ Zalo
       const updateResult = await pool.query(
         `UPDATE users 
          SET username = $2, fullname = $3, avatar = $4, phone = $5, birthday = $6, gender = $7, updatedat = NOW()
          WHERE zaloid = $1 
          RETURNING *`,
         [
-          userInfo.id,
-          userInfo.name || existingUser.rows[0].username,
-          userInfo.name || existingUser.rows[0].fullname,
-          userInfo.avatar || existingUser.rows[0].avatar,
-          userInfo.phone || existingUser.rows[0].phone,
-          userInfo.birthday || existingUser.rows[0].birthday,
-          userInfo.gender || existingUser.rows[0].gender
+          realUserInfo.id,
+          realUserInfo.name || existingUser.rows[0].username,
+          realUserInfo.name || existingUser.rows[0].fullname,
+          realUserInfo.picture?.data?.url || existingUser.rows[0].avatar,
+          realUserInfo.phone || existingUser.rows[0].phone,
+          realUserInfo.birthday || existingUser.rows[0].birthday,
+          realUserInfo.gender || existingUser.rows[0].gender
         ]
       );
       userData = updateResult.rows[0];
@@ -82,25 +114,25 @@ router.post('/auth', async (req, res) => {
 
     // Tạo JWT token
     const jwtToken = generateZaloToken({
-      id: userInfo.id,
-      name: userInfo.name,
-      picture: { data: { url: userInfo.avatar } },
-      phone: userInfo.phone,
-      birthday: userInfo.birthday,
-      gender: userInfo.gender
+      id: realUserInfo.id,
+      name: realUserInfo.name,
+      picture: { data: { url: realUserInfo.picture?.data?.url } },
+      phone: realUserInfo.phone,
+      birthday: realUserInfo.birthday,
+      gender: realUserInfo.gender
     });
 
     res.json({
       success: true,
-      message: 'Đăng nhập thành công',
+      message: 'Đăng nhập thành công với thông tin Zalo thật',
       token: jwtToken,
       user: {
-        id: userInfo.id,
-        name: userInfo.name,
-        avatar: userInfo.avatar,
-        phone: userInfo.phone,
-        birthday: userInfo.birthday,
-        gender: userInfo.gender
+        id: realUserInfo.id,
+        name: realUserInfo.name,
+        avatar: realUserInfo.picture?.data?.url || '',
+        phone: realUserInfo.phone || '',
+        birthday: realUserInfo.birthday,
+        gender: realUserInfo.gender
       }
     });
 
