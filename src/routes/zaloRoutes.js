@@ -24,20 +24,54 @@ router.post('/auth', async (req, res) => {
     let phoneNumber = null;
     if (phoneToken) {
       try {
-        // Gọi Zalo API để decode phone token
-        const phoneResponse = await axios.post('https://graph.zalo.me/v2.0/me/phone', {
-          phone_token: phoneToken
-        }, {
-          headers: {
-            'access_token': process.env.ZALO_APP_SECRET // hoặc app access token
+        console.log('Attempting to decode phone token:', phoneToken.substring(0, 20) + '...');
+        
+        // Thử nhiều cách decode phone token
+        let phoneResponse;
+        
+        // CÁCH 1: Dùng App Secret như docs
+        try {
+          phoneResponse = await axios.post('https://graph.zalo.me/v2.0/me/phone', {
+            phone_token: phoneToken
+          }, {
+            headers: {
+              'access_token': process.env.ZALO_APP_SECRET
+            }
+          });
+          console.log('Method 1 success:', phoneResponse.data);
+        } catch (method1Error) {
+          console.log('Method 1 failed:', method1Error.response?.data || method1Error.message);
+          
+          // CÁCH 2: Dùng GET request
+          try {
+            phoneResponse = await axios.get(`https://graph.zalo.me/v2.0/me/phone?phone_token=${phoneToken}`, {
+              headers: {
+                'access_token': process.env.ZALO_APP_SECRET
+              }
+            });
+            console.log('Method 2 success:', phoneResponse.data);
+          } catch (method2Error) {
+            console.log('Method 2 failed:', method2Error.response?.data || method2Error.message);
+            throw new Error('All phone decode methods failed');
           }
+        }
+        
+        // Extract phone number từ response
+        phoneNumber = phoneResponse.data?.data?.number || 
+                      phoneResponse.data?.number || 
+                      phoneResponse.data?.phone_number;
+                      
+        console.log('Successfully decoded phone number:', phoneNumber);
+        
+      } catch (phoneError) {
+        console.error('Cannot decode phone token:', {
+          error: phoneError.message,
+          tokenLength: phoneToken?.length,
+          appSecret: process.env.ZALO_APP_SECRET ? 'exists' : 'missing'
         });
         
-        phoneNumber = phoneResponse.data.number;
-        console.log('Phone number from token:', phoneNumber);
-      } catch (phoneError) {
-        console.log('Cannot decode phone token:', phoneError.message);
-        // Không throw error, vì user có thể chưa cấp quyền phone
+        // Không throw error, tiếp tục mà không có phone
+        console.log('Continuing login without phone number...');
       }
     }
 
