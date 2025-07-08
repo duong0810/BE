@@ -9,7 +9,7 @@ import {
   spinVoucher
 } from "../controllers/voucherController.js";
 import { authMiddleware } from "../middlewares/auth.js";
-import { getUserFromZaloId } from "../middlewares/zaloAuth.js";
+import { getUserFromZaloId, verifyZaloToken } from "../middlewares/zaloAuth.js"; // ← THÊM verifyZaloToken
 import multer from "multer";
 import { getBannerHeaders, updateBannerHeaders } from "../controllers/voucherController.js";
 import { spinWheelWithLimit } from "../controllers/voucherController.js";
@@ -151,110 +151,122 @@ router.get("/with-user-count", async (req, res) => {
 });
 
 // --- API CLAIM VOUCHER ---
-router.post("/claim", async (req, res) => {
-  const { zaloId, voucherId } = req.body;
-  console.log("[CLAIM] Nhận được:", { zaloId, voucherId });
-
-  if (!zaloId || !voucherId) {
-    console.log("[CLAIM] Thiếu zaloId hoặc voucherId");
-    return res.status(400).json({ error: "Thiếu zaloId hoặc voucherId" });
-  }
+router.post("/claim", verifyZaloToken, async (req, res) => {
   try {
+    // ✅ LẤY ZALOID TỪ JWT TOKEN (đã verify trong middleware)
+    const zaloId = req.user.zaloid; // từ verifyZaloToken middleware
+    const { voucherId } = req.body;
+    
+    console.log('[CLAIM] ZaloId từ token:', zaloId);
+    console.log('[CLAIM] VoucherId:', voucherId);
+    
+    if (!voucherId) {
+      console.log('[CLAIM] Thiếu voucherId');
+      return res.status(400).json({ 
+        success: false,
+        error: "Thiếu voucherId" 
+      });
+    }
+
     const pool = await getPool();
-    // Mapping zaloId -> userid
+    
+    // 1. Lấy userid từ zaloId
     const userResult = await pool.query(
       "SELECT userid FROM users WHERE zaloid = $1",
       [zaloId]
     );
-    console.log("[CLAIM] Kết quả tìm user:", userResult.rows);
+    console.log('[CLAIM] Kết quả tìm user:', userResult.rows.length);
 
     if (userResult.rows.length === 0) {
-      console.log("[CLAIM] Không tìm thấy user với zaloId:", zaloId);
-      return res.status(404).json({ error: "Không tìm thấy người dùng" });
+      console.log('[CLAIM] Không tìm thấy user với zaloId:', zaloId);
+      return res.status(404).json({ 
+        success: false,
+        error: "Không tìm thấy người dùng" 
+      });
     }
+    
     const userId = userResult.rows[0].userid;
+    console.log('[CLAIM] User found:', userId);
 
-    // Kiểm tra đã nhận voucher này chưa
+    // 2. Kiểm tra đã nhận voucher này chưa
     const check = await pool.query(
       "SELECT * FROM uservouchers WHERE userid = $1 AND voucherid = $2",
       [userId, voucherId]
     );
-    console.log("[CLAIM] Kết quả kiểm tra uservouchers:", check.rows);
+    console.log('[CLAIM] Kết quả kiểm tra uservouchers:', check.rows.length);
 
     if (check.rows.length > 0) {
-      console.log("[CLAIM] User đã nhận voucher này rồi");
-      return res.status(409).json({ error: "Bạn đã nhận voucher này rồi" });
+      console.log('[CLAIM] User đã nhận voucher này rồi');
+      return res.status(409).json({ 
+        success: false,
+        error: "Bạn đã nhận voucher này rồi" 
+      });
     }
 
-    // Kiểm tra số lượng voucher còn không
+    // 3. Kiểm tra voucher tồn tại và số lượng
     const voucherResult = await pool.query(
-      "SELECT quantity FROM vouchers WHERE voucherid = $1",
+      "SELECT * FROM vouchers WHERE voucherid = $1",
       [voucherId]
     );
-    if (voucherResult.rows.length === 0 || voucherResult.rows[0].quantity <= 0) {
-      return res.status(409).json({ error: "Voucher đã hết lượt!" });
+    
+    if (voucherResult.rows.length === 0) {
+      console.log('[CLAIM] Voucher không tồn tại:', voucherId);
+      return res.status(404).json({ 
+        success: false,
+        error: "Voucher không tồn tại" 
+      });
     }
 
-    // Trừ số lượng voucher
+    const voucher = voucherResult.rows[0];
+    console.log('[CLAIM] Voucher found:', voucher.code, 'Quantity:', voucher.quantity);
+
+    if (voucher.quantity <= 0) {
+      console.log('[CLAIM] Voucher đã hết lượt');
+      return res.status(409).json({ 
+        success: false,
+        error: "Voucher đã hết lượt!" 
+      });
+    }
+
+    // 4. Kiểm tra voucher còn hiệu lực không
+    const now = new Date();
+    if (new Date(voucher.expirydate) < now) {
+      console.log('[CLAIM] Voucher đã hết hạn');
+      return res.status(400).json({
+        success: false,
+        error: 'Voucher đã hết hạn'
+      });
+    }
+
+    // 5. Trừ số lượng voucher
     await pool.query(
       "UPDATE vouchers SET quantity = quantity - 1 WHERE voucherid = $1 AND quantity > 0",
       [voucherId]
     );
 
-    // Lưu voucher cho user (bổ sung isused, assignedat)
-    await pool.query(
-      "INSERT INTO uservouchers (userid, voucherid, isused, assignedat) VALUES ($1, $2, $3, NOW())",
+    // 6. Lưu voucher cho user
+    const claimResult = await pool.query(
+      "INSERT INTO uservouchers (userid, voucherid, isused, assignedat) VALUES ($1, $2, $3, NOW()) RETURNING *",
       [userId, voucherId, false]
     );
-    console.log("[CLAIM] Đã lưu voucher cho user:", userId, voucherId);
-    res.json({ success: true, message: "Nhận voucher thành công" });
+    
+    console.log('[CLAIM] Đã lưu voucher cho user:', userId, voucherId);
+    
+    res.json({ 
+      success: true, 
+      message: "Nhận voucher thành công!",
+      data: {
+        userVoucher: claimResult.rows[0],
+        voucher: voucher
+      }
+    });
+    
   } catch (err) {
-    console.error("[CLAIM] Lỗi:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// --- API LẤY DANH SÁCH VOUCHER ĐÃ NHẬN ---
-router.get("/user", async (req, res) => {
-  const { zaloId } = req.query;
-  console.log("[GET USER VOUCHERS] Nhận được zaloId:", zaloId);
-
-  if (!zaloId) {
-    console.log("[GET USER VOUCHERS] Thiếu zaloId");
-    return res.status(400).json({ error: "Thiếu zaloId" });
-  }
-  try {
-    const pool = await getPool();
-    // Mapping zaloId -> userid
-    const userResult = await pool.query(
-      "SELECT userid FROM users WHERE zaloid = $1",
-      [zaloId]
-    );
-    console.log("[GET USER VOUCHERS] Kết quả tìm user:", userResult.rows);
-
-    if (userResult.rows.length === 0) {
-      console.log("[GET USER VOUCHERS] Không tìm thấy user với zaloId:", zaloId);
-      return res.json([]); // User chưa từng nhận voucher nào
-    }
-    const userId = userResult.rows[0].userid;
-    // Truy vấn voucher đã nhận
-    const vouchers = await pool.query(
-      `SELECT v.*, uv.isused, uv.assignedat, uv.usedat
-       FROM uservouchers uv
-       JOIN vouchers v ON uv.voucherid = v.voucherid
-       WHERE uv.userid = $1
-       ORDER BY uv.assignedat DESC`,
-      [userId]
-    );
-    // Thêm trường collectedAt (timestamp mili giây)
-    const result = vouchers.rows.map(v => ({
-      ...v,
-      collectedAt: v.assignedat ? new Date(v.assignedat).getTime() : null
-    }));
-    res.json(result);
-  } catch (err) {
-    console.error("[GET USER VOUCHERS] Lỗi:", err);
-    res.status(500).json({ error: err.message });
+    console.error('[CLAIM] Lỗi:', err);
+    res.status(500).json({ 
+      success: false,
+      error: err.message 
+    });
   }
 });
 
