@@ -9,9 +9,9 @@ const router = express.Router();
 // Route để xử lý đăng nhập từ Zalo Mini App
 router.post('/auth', async (req, res) => {
   try {
-    const { userInfo, accessToken, phoneToken } = req.body;
+    const { userInfo, accessToken, phoneNumber } = req.body; // ← ĐỔI THÀNH phoneNumber
 
-    console.log('Received auth request:', { userInfo, accessToken, phoneToken });
+    console.log('Received auth request:', { userInfo, accessToken, phoneNumber });
 
     // Handle nested userInfo structure from Frontend
     const actualUserInfo = userInfo?.userInfo || userInfo;
@@ -24,113 +24,9 @@ router.post('/auth', async (req, res) => {
     }
 
     console.log('Using userInfo:', actualUserInfo);
+    console.log('Received phone number:', phoneNumber);
 
-    // Xử lý phone token nếu có (từ Mini App)
-    let phoneNumber = null;
-    if (phoneToken && accessToken) {
-      try {
-        console.log('Attempting to decode phone token:', phoneToken.substring(0, 20) + '...');
-        
-        // ✅ METHOD 1: Sử dụng API endpoint đúng theo Zalo docs
-        try {
-          const phoneResponse = await axios.get(
-            `https://graph.zalo.me/v2.0/me/info?access_token=${accessToken}&code=${phoneToken}&fields=name,picture`
-          );
-          
-          console.log('Method 1 (correct API) response:', phoneResponse.data);
-          
-          if (phoneResponse.data.error === 0 && phoneResponse.data.data && phoneResponse.data.data.number) {
-            phoneNumber = phoneResponse.data.data.number;
-            console.log('✅ Successfully decoded phone number:', phoneNumber);
-          } else {
-            console.log('❌ Method 1 - Cannot decode phone number:', phoneResponse.data);
-            throw new Error('Method 1 failed');
-          }
-        } catch (method1Error) {
-          console.log('Method 1 failed:', method1Error.response?.data || method1Error.message);
-          
-          // ✅ METHOD 2: Thử với alternative endpoint
-          try {
-            const phoneResponse = await axios.get(
-              `https://openapi.zalo.me/v2.0/me/info?access_token=${accessToken}&code=${phoneToken}&fields=name,picture`
-            );
-            
-            console.log('Method 2 (alternative API) response:', phoneResponse.data);
-            
-            if (phoneResponse.data.error === 0 && phoneResponse.data.data && phoneResponse.data.data.number) {
-              phoneNumber = phoneResponse.data.data.number;
-              console.log('✅ Method 2 - Successfully decoded phone number:', phoneNumber);
-            } else {
-              console.log('❌ Method 2 - Cannot decode phone number:', phoneResponse.data);
-              throw new Error('Method 2 failed');
-            }
-          } catch (method2Error) {
-            console.log('Method 2 failed:', method2Error.response?.data || method2Error.message);
-            
-            // ✅ METHOD 3: Thử với app secret
-            try {
-              const phoneResponse = await axios.get(
-                `https://graph.zalo.me/v2.0/me/info?access_token=${accessToken}&code=${phoneToken}&secret_key=${process.env.ZALO_APP_SECRET}&fields=name,picture`
-              );
-              
-              console.log('Method 3 (with secret) response:', phoneResponse.data);
-              
-              if (phoneResponse.data.error === 0 && phoneResponse.data.data && phoneResponse.data.data.number) {
-                phoneNumber = phoneResponse.data.data.number;
-                console.log('✅ Method 3 - Successfully decoded phone number:', phoneNumber);
-              } else {
-                console.log('❌ Method 3 - Cannot decode phone number:', phoneResponse.data);
-                throw new Error('Method 3 failed');
-              }
-            } catch (method3Error) {
-              console.log('Method 3 failed:', method3Error.response?.data || method3Error.message);
-              
-              // ✅ METHOD 4: Fallback - thử với old endpoint (backup)
-              try {
-                const phoneResponse = await axios.post('https://graph.zalo.me/v2.0/me/phone', {
-                  phone_token: phoneToken
-                }, {
-                  headers: {
-                    'access_token': accessToken
-                  }
-                });
-                
-                console.log('Method 4 (fallback) response:', phoneResponse.data);
-                
-                // Extract phone number từ response
-                phoneNumber = phoneResponse.data?.data?.number || 
-                              phoneResponse.data?.number || 
-                              phoneResponse.data?.phone_number;
-                              
-                if (phoneNumber) {
-                  console.log('✅ Method 4 - Successfully decoded phone number:', phoneNumber);
-                } else {
-                  throw new Error('Method 4 - No phone number in response');
-                }
-              } catch (method4Error) {
-                console.log('Method 4 failed:', method4Error.response?.data || method4Error.message);
-                throw new Error('All phone decode methods failed');
-              }
-            }
-          }
-        }
-        
-      } catch (phoneError) {
-        console.error('Cannot decode phone token:', {
-          error: phoneError.message,
-          tokenLength: phoneToken?.length,
-          accessTokenLength: accessToken?.length,
-          appSecret: process.env.ZALO_APP_SECRET ? 'exists' : 'missing'
-        });
-        
-        // Không throw error, tiếp tục mà không có phone
-        console.log('Continuing login without phone number...');
-      }
-    } else {
-      console.log('Missing phoneToken or accessToken, skipping phone decode');
-    }
-
-    // Kiểm tra và tạo/cập nhật user trong database
+    // Không cần decode phone token nữa, dùng phoneNumber trực tiếp từ Frontend
     const pool = await getPool();
     
     // Kiểm tra user đã tồn tại chưa
@@ -152,12 +48,12 @@ router.post('/auth', async (req, res) => {
           actualUserInfo.name || `zalo_user_${actualUserInfo.id}`,
           actualUserInfo.name || '',
           actualUserInfo.email || null,
-          phoneNumber,
+          phoneNumber, // ← DÙNG PHONE NUMBER TRỰC TIẾP
           actualUserInfo.avatar || ''
         ]
       );
       userData = insertResult.rows[0];
-      console.log('Created new user:', userData.userid);
+      console.log('Created new user with phone:', userData.userid, phoneNumber);
     } else {
       // Cập nhật thông tin user
       const updateResult = await pool.query(
@@ -173,7 +69,7 @@ router.post('/auth', async (req, res) => {
         ]
       );
       userData = updateResult.rows[0];
-      console.log('Updated user:', userData.userid);
+      console.log('Updated user with phone:', userData.userid, phoneNumber);
     }
 
     // Tạo JWT token
