@@ -27,49 +27,86 @@ router.post('/auth', async (req, res) => {
 
     // Xử lý phone token nếu có (từ Mini App)
     let phoneNumber = null;
-    if (phoneToken) {
+    if (phoneToken && accessToken) {
       try {
         console.log('Attempting to decode phone token:', phoneToken.substring(0, 20) + '...');
         
-        let phoneResponse;
-        
-        // CÁCH 1: Dùng accessToken từ Frontend thay vì App Secret
+        // ✅ METHOD 1: Sử dụng API endpoint đúng theo Zalo docs
         try {
-          phoneResponse = await axios.post('https://graph.zalo.me/v2.0/me/phone', {
-            phone_token: phoneToken
-          }, {
-            headers: {
-              'access_token': accessToken
-            }
-          });
-          console.log('Method 1 (accessToken) success:', phoneResponse.data);
+          const phoneResponse = await axios.get(
+            `https://graph.zalo.me/v2.0/me/info?access_token=${accessToken}&code=${phoneToken}&fields=name,picture`
+          );
+          
+          console.log('Method 1 (correct API) response:', phoneResponse.data);
+          
+          if (phoneResponse.data.error === 0 && phoneResponse.data.data && phoneResponse.data.data.number) {
+            phoneNumber = phoneResponse.data.data.number;
+            console.log('✅ Successfully decoded phone number:', phoneNumber);
+          } else {
+            console.log('❌ Method 1 - Cannot decode phone number:', phoneResponse.data);
+            throw new Error('Method 1 failed');
+          }
         } catch (method1Error) {
           console.log('Method 1 failed:', method1Error.response?.data || method1Error.message);
           
-          // CÁCH 2: Thử với App Secret
+          // ✅ METHOD 2: Thử với alternative endpoint
           try {
-            phoneResponse = await axios.post('https://graph.zalo.me/v2.0/me/phone', {
-              phone_token: phoneToken
-            }, {
-              headers: {
-                'access_token': process.env.ZALO_APP_SECRET
-              }
-            });
-            console.log('Method 2 (appSecret) success:', phoneResponse.data);
+            const phoneResponse = await axios.get(
+              `https://openapi.zalo.me/v2.0/me/info?access_token=${accessToken}&code=${phoneToken}&fields=name,picture`
+            );
+            
+            console.log('Method 2 (alternative API) response:', phoneResponse.data);
+            
+            if (phoneResponse.data.error === 0 && phoneResponse.data.data && phoneResponse.data.data.number) {
+              phoneNumber = phoneResponse.data.data.number;
+              console.log('✅ Method 2 - Successfully decoded phone number:', phoneNumber);
+            } else {
+              console.log('❌ Method 2 - Cannot decode phone number:', phoneResponse.data);
+              throw new Error('Method 2 failed');
+            }
           } catch (method2Error) {
             console.log('Method 2 failed:', method2Error.response?.data || method2Error.message);
             
-            // CÁCH 3: Thử endpoint khác
+            // ✅ METHOD 3: Thử với app secret
             try {
-              phoneResponse = await axios.get(`https://openapi.zalo.me/v2.0/me/phone?access_token=${accessToken}&phone_token=${phoneToken}`);
-              console.log('Method 3 (openapi) success:', phoneResponse.data);
+              const phoneResponse = await axios.get(
+                `https://graph.zalo.me/v2.0/me/info?access_token=${accessToken}&code=${phoneToken}&secret_key=${process.env.ZALO_APP_SECRET}&fields=name,picture`
+              );
+              
+              console.log('Method 3 (with secret) response:', phoneResponse.data);
+              
+              if (phoneResponse.data.error === 0 && phoneResponse.data.data && phoneResponse.data.data.number) {
+                phoneNumber = phoneResponse.data.data.number;
+                console.log('✅ Method 3 - Successfully decoded phone number:', phoneNumber);
+              } else {
+                console.log('❌ Method 3 - Cannot decode phone number:', phoneResponse.data);
+                throw new Error('Method 3 failed');
+              }
             } catch (method3Error) {
               console.log('Method 3 failed:', method3Error.response?.data || method3Error.message);
               
-              // CÁCH 4: Thử với App Secret trên openapi
+              // ✅ METHOD 4: Fallback - thử với old endpoint (backup)
               try {
-                phoneResponse = await axios.get(`https://openapi.zalo.me/v2.0/me/phone?access_token=${process.env.ZALO_APP_SECRET}&phone_token=${phoneToken}`);
-                console.log('Method 4 (openapi + appSecret) success:', phoneResponse.data);
+                const phoneResponse = await axios.post('https://graph.zalo.me/v2.0/me/phone', {
+                  phone_token: phoneToken
+                }, {
+                  headers: {
+                    'access_token': accessToken
+                  }
+                });
+                
+                console.log('Method 4 (fallback) response:', phoneResponse.data);
+                
+                // Extract phone number từ response
+                phoneNumber = phoneResponse.data?.data?.number || 
+                              phoneResponse.data?.number || 
+                              phoneResponse.data?.phone_number;
+                              
+                if (phoneNumber) {
+                  console.log('✅ Method 4 - Successfully decoded phone number:', phoneNumber);
+                } else {
+                  throw new Error('Method 4 - No phone number in response');
+                }
               } catch (method4Error) {
                 console.log('Method 4 failed:', method4Error.response?.data || method4Error.message);
                 throw new Error('All phone decode methods failed');
@@ -78,23 +115,19 @@ router.post('/auth', async (req, res) => {
           }
         }
         
-        // Extract phone number từ response
-        phoneNumber = phoneResponse.data?.data?.number || 
-                      phoneResponse.data?.number || 
-                      phoneResponse.data?.phone_number;
-                      
-        console.log('Successfully decoded phone number:', phoneNumber);
-        
       } catch (phoneError) {
         console.error('Cannot decode phone token:', {
           error: phoneError.message,
           tokenLength: phoneToken?.length,
+          accessTokenLength: accessToken?.length,
           appSecret: process.env.ZALO_APP_SECRET ? 'exists' : 'missing'
         });
         
         // Không throw error, tiếp tục mà không có phone
         console.log('Continuing login without phone number...');
       }
+    } else {
+      console.log('Missing phoneToken or accessToken, skipping phone decode');
     }
 
     // Kiểm tra và tạo/cập nhật user trong database
@@ -103,7 +136,7 @@ router.post('/auth', async (req, res) => {
     // Kiểm tra user đã tồn tại chưa
     const existingUser = await pool.query(
       "SELECT * FROM users WHERE zaloid = $1",
-      [actualUserInfo.id]  // ← SỬA: dùng actualUserInfo
+      [actualUserInfo.id]
     );
 
     let userData;
@@ -115,12 +148,12 @@ router.post('/auth', async (req, res) => {
          VALUES ($1, $2, $3, $4, $5, $6, 'user', 'active', NOW(), NOW()) 
          RETURNING *`,
         [
-          actualUserInfo.id,                                        // ← SỬA
-          actualUserInfo.name || `zalo_user_${actualUserInfo.id}`,  // ← SỬA
-          actualUserInfo.name || '',                                // ← SỬA
-          actualUserInfo.email || null,                             // ← SỬA
+          actualUserInfo.id,
+          actualUserInfo.name || `zalo_user_${actualUserInfo.id}`,
+          actualUserInfo.name || '',
+          actualUserInfo.email || null,
           phoneNumber,
-          actualUserInfo.avatar || ''                               // ← SỬA
+          actualUserInfo.avatar || ''
         ]
       );
       userData = insertResult.rows[0];
@@ -133,10 +166,10 @@ router.post('/auth', async (req, res) => {
          WHERE zaloid = $1 
          RETURNING *`,
         [
-          actualUserInfo.id,                                            // ← SỬA
-          actualUserInfo.name || existingUser.rows[0].fullname,         // ← SỬA
+          actualUserInfo.id,
+          actualUserInfo.name || existingUser.rows[0].fullname,
           phoneNumber || existingUser.rows[0].phone,
-          actualUserInfo.avatar || existingUser.rows[0].avatar          // ← SỬA
+          actualUserInfo.avatar || existingUser.rows[0].avatar
         ]
       );
       userData = updateResult.rows[0];
