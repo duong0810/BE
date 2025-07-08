@@ -6,14 +6,44 @@ import { getPool } from '../config.js';
 
 const router = express.Router();
 
+// ✅ THÊM FUNCTION FORMAT PHONE NUMBER
+const formatPhoneNumber = (phone) => {
+  if (!phone) return null;
+  
+  // Remove any existing formatting
+  const cleanPhone = phone.replace(/[^\d]/g, '');
+  
+  // Check if it's Vietnamese number
+  if (cleanPhone.startsWith('84') && cleanPhone.length >= 10) {
+    // Format: 84372284930 → +84 372284930
+    const countryCode = cleanPhone.substring(0, 2); // 84
+    const mainNumber = cleanPhone.substring(2);      // 372284930
+    return `+${countryCode} ${mainNumber}`;
+  }
+  
+  // If it starts with 0, convert to +84 format
+  if (cleanPhone.startsWith('0') && cleanPhone.length >= 10) {
+    // Format: 0372284930 → +84 372284930
+    const mainNumber = cleanPhone.substring(1);      // 372284930
+    return `+84 ${mainNumber}`;
+  }
+  
+  // Default: just add + if it's all numbers
+  if (cleanPhone.length >= 10) {
+    return `+${cleanPhone}`;
+  }
+  
+  // Return original if can't format
+  return phone;
+};
+
 // Route để xử lý đăng nhập từ Zalo Mini App
 router.post('/auth', async (req, res) => {
   try {
-    const { userInfo, accessToken, phoneNumber } = req.body; // ← ĐỔI THÀNH phoneNumber
+    const { userInfo, accessToken, phoneNumber } = req.body;
 
     console.log('Received auth request:', { userInfo, accessToken, phoneNumber });
 
-    // Handle nested userInfo structure from Frontend
     const actualUserInfo = userInfo?.userInfo || userInfo;
 
     if (!actualUserInfo || !actualUserInfo.id) {
@@ -26,10 +56,12 @@ router.post('/auth', async (req, res) => {
     console.log('Using userInfo:', actualUserInfo);
     console.log('Received phone number:', phoneNumber);
 
-    // Không cần decode phone token nữa, dùng phoneNumber trực tiếp từ Frontend
+    // ✅ FORMAT PHONE NUMBER
+    const formattedPhone = formatPhoneNumber(phoneNumber);
+    console.log('Formatted phone:', formattedPhone);
+
     const pool = await getPool();
     
-    // Kiểm tra user đã tồn tại chưa
     const existingUser = await pool.query(
       "SELECT * FROM users WHERE zaloid = $1",
       [actualUserInfo.id]
@@ -48,12 +80,12 @@ router.post('/auth', async (req, res) => {
           actualUserInfo.name || `zalo_user_${actualUserInfo.id}`,
           actualUserInfo.name || '',
           actualUserInfo.email || null,
-          phoneNumber, // ← DÙNG PHONE NUMBER TRỰC TIẾP
+          formattedPhone, // ← DÙNG FORMATTED PHONE
           actualUserInfo.avatar || ''
         ]
       );
       userData = insertResult.rows[0];
-      console.log('Created new user with phone:', userData.userid, phoneNumber);
+      console.log('Created new user with formatted phone:', userData.userid, formattedPhone);
     } else {
       // Cập nhật thông tin user
       const updateResult = await pool.query(
@@ -64,12 +96,12 @@ router.post('/auth', async (req, res) => {
         [
           actualUserInfo.id,
           actualUserInfo.name || existingUser.rows[0].fullname,
-          phoneNumber || existingUser.rows[0].phone,
+          formattedPhone || existingUser.rows[0].phone, // ← DÙNG FORMATTED PHONE
           actualUserInfo.avatar || existingUser.rows[0].avatar
         ]
       );
       userData = updateResult.rows[0];
-      console.log('Updated user with phone:', userData.userid, phoneNumber);
+      console.log('Updated user with formatted phone:', userData.userid, formattedPhone);
     }
 
     // Tạo JWT token
@@ -84,7 +116,7 @@ router.post('/auth', async (req, res) => {
         zaloid: userData.zaloid,
         username: userData.username,
         fullname: userData.fullname,
-        phone: userData.phone,
+        phone: userData.phone, // ← SẼ HIỂN THỊ +84 372284930
         avatar: userData.avatar,
         role: userData.role,
         status: userData.status
@@ -115,12 +147,15 @@ router.put('/update', verifyZaloToken, async (req, res) => {
     const { name, phone } = req.body;
     const pool = await getPool();
     
+    // ✅ FORMAT PHONE KHI UPDATE
+    const formattedPhone = formatPhoneNumber(phone);
+    
     const updateResult = await pool.query(
       `UPDATE users 
        SET fullname = $2, phone = $3, updatedat = NOW()
        WHERE zaloid = $1 
        RETURNING *`,
-      [req.user.zaloid, name, phone]
+      [req.user.zaloid, name, formattedPhone] // ← DÙNG FORMATTED PHONE
     );
 
     if (updateResult.rows.length === 0) {
