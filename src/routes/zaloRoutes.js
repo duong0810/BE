@@ -9,7 +9,9 @@ const router = express.Router();
 // Route để xử lý đăng nhập từ Zalo Mini App
 router.post('/auth', async (req, res) => {
   try {
-    const { userInfo, accessToken } = req.body;
+    const { userInfo, accessToken, phoneToken } = req.body;
+    
+    console.log('Received auth request:', { userInfo, accessToken, phoneToken });
     
     if (!userInfo || !userInfo.id) {
       return res.status(400).json({
@@ -18,18 +20,24 @@ router.post('/auth', async (req, res) => {
       });
     }
 
-    // Verify access token với Zalo (nếu có)
-    if (accessToken) {
+    // Xử lý phone token nếu có (từ Mini App)
+    let phoneNumber = null;
+    if (phoneToken) {
       try {
-        const isValidToken = await ZaloAPI.verifyZaloToken(accessToken);
-        if (!isValidToken) {
-          return res.status(401).json({
-            success: false,
-            message: 'Access token không hợp lệ'
-          });
-        }
-      } catch (error) {
-        console.log('Token verification failed:', error.message);
+        // Gọi Zalo API để decode phone token
+        const phoneResponse = await axios.post('https://graph.zalo.me/v2.0/me/phone', {
+          phone_token: phoneToken
+        }, {
+          headers: {
+            'access_token': process.env.ZALO_APP_SECRET // hoặc app access token
+          }
+        });
+        
+        phoneNumber = phoneResponse.data.number;
+        console.log('Phone number from token:', phoneNumber);
+      } catch (phoneError) {
+        console.log('Cannot decode phone token:', phoneError.message);
+        // Không throw error, vì user có thể chưa cấp quyền phone
       }
     }
 
@@ -54,27 +62,29 @@ router.post('/auth', async (req, res) => {
           userInfo.id,
           userInfo.name || `zalo_user_${userInfo.id}`,
           userInfo.name || '',
-          userInfo.email || null,
-          userInfo.phone || null,
+          null, // email
+          phoneNumber, // phone từ token
           userInfo.avatar || ''
         ]
       );
       userData = insertResult.rows[0];
+      console.log('Created new user:', userData.userid);
     } else {
       // Cập nhật thông tin user
       const updateResult = await pool.query(
         `UPDATE users 
-         SET fullname = $2, phone = $3, avatar = $4, updatedat = NOW()
+         SET fullname = $2, phone = COALESCE($3, phone), avatar = $4, updatedat = NOW()
          WHERE zaloid = $1 
          RETURNING *`,
         [
           userInfo.id,
           userInfo.name || existingUser.rows[0].fullname,
-          userInfo.phone || existingUser.rows[0].phone,
+          phoneNumber || existingUser.rows[0].phone, // Giữ phone cũ nếu không có mới
           userInfo.avatar || existingUser.rows[0].avatar
         ]
       );
       userData = updateResult.rows[0];
+      console.log('Updated user:', userData.userid);
     }
 
     // Tạo JWT token
@@ -91,8 +101,7 @@ router.post('/auth', async (req, res) => {
         fullname: userData.fullname,
         phone: userData.phone,
         avatar: userData.avatar,
-        role: userData.role,
-        status: userData.status
+        role: userData.role
       }
     });
 
