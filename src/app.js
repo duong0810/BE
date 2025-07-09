@@ -12,7 +12,7 @@ import settingsRoutes from "./routes/settingsRoutes.js";
 import productRoutes from './routes/productRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import zaloRoutes from "./routes/zaloRoutes.js";
-
+import userRoutes from "./routes/userRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -62,6 +62,9 @@ app.use("/health", healthRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/uploads", uploadRoutes);
+
+// Route cho người dùng (đăng ký, đăng nhập, lấy thông tin)
+app.use("/api/users", userRoutes);
 
 // API auth
 app.use("/api/zalo", zaloRoutes);
