@@ -13,7 +13,7 @@ import { getUserFromZaloId, verifyZaloToken } from "../middlewares/zaloAuth.js";
 import multer from "multer";
 import { getBannerHeaders, updateBannerHeaders } from "../controllers/voucherController.js";
 import { spinWheelWithLimit } from "../controllers/voucherController.js";
-// import { assignVoucher } from "../controllers/voucherController.js";
+import { getUserVouchers } from "../controllers/voucherController.js"; // Thêm dòng này ở đầu file
 
 const upload = multer({ dest: "uploads/" });
 
@@ -24,8 +24,8 @@ router.get("/spin", spinVoucher);
 // Route quay vòng với giới hạn
 router.post("/spin-wheel-limit", verifyZaloToken, spinWheelWithLimit);
 
-// Route gán voucher cho user
-// router.post("/assign", verifyZaloToken, assignVoucher);
+// API lấy danh sách voucher của user (dựa vào token)
+router.get("/my-vouchers", verifyZaloToken, getUserVouchers);
 
 // Route lấy banner headers
 router.get("/banner-headers", getBannerHeaders);
@@ -432,11 +432,6 @@ router.get("/user-stats/:zaloId", async (req, res) => {
   }
 });
 
-// ĐẶT CÁC ROUTE ĐỘNG Ở CUỐI FILE
-router.get("/", getAllVouchers);
-router.get("/:id", findVoucher);
-router.delete("/:id", authMiddleware, deleteVoucher);
-
 // Route đăng nhập admin
 router.post("/login", (req, res) => {
   const { username, password } = req.body;
@@ -448,5 +443,10 @@ router.post("/login", (req, res) => {
   }
   return res.status(401).json({ success: false, message: "Sai tài khoản hoặc mật khẩu!" });
 });
+
+// ĐẶT CÁC ROUTE ĐỘNG Ở CUỐI FILE
+router.get("/", getAllVouchers);
+router.get("/:id", findVoucher);
+router.delete("/:id", authMiddleware, deleteVoucher);
 
 export default router;
