@@ -394,3 +394,65 @@ export const spinWheelWithLimit = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+export const assignVoucher = async (req, res) => {
+  console.log("===== /assign DEBUG =====");
+  console.log("Body nhận được:", req.body);
+
+  const zaloId = req.user.zaloid; // Lấy từ token
+  const { voucherId } = req.body;
+  if (!zaloId || !voucherId) {
+    console.log("Thiếu zaloId hoặc voucherId");
+    return res.status(400).json({ error: "Thiếu zaloId hoặc voucherId" });
+  }
+  try {
+    const pool = await getPool();
+    // Lấy userid từ zaloid
+    const userResult = await pool.query(
+      "SELECT userid FROM users WHERE zaloid = $1",
+      [zaloId]
+    );
+    console.log("userResult:", userResult.rows);
+    if (userResult.rows.length === 0) {
+      console.log("Không tìm thấy user với zaloId:", zaloId);
+      return res.status(404).json({ error: "Không tìm thấy user" });
+    }
+    const userId = userResult.rows[0].userid;
+    // Kiểm tra đã nhận voucher này chưa
+    const check = await pool.query(
+      "SELECT * FROM uservouchers WHERE userid = $1 AND voucherid = $2",
+      [userId, voucherId]
+    );
+    console.log("Check uservouchers:", check.rows);
+    if (check.rows.length > 0) {
+      console.log("User đã nhận voucher này rồi");
+      return res.status(409).json({ error: "Bạn đã nhận voucher này rồi" });
+    }
+
+    // Kiểm tra số lượng voucher còn không
+    const voucherResult = await pool.query(
+      "SELECT quantity FROM vouchers WHERE voucherid = $1",
+      [voucherId]
+    );
+    if (voucherResult.rows.length === 0 || voucherResult.rows[0].quantity <= 0) {
+      return res.status(409).json({ error: "Voucher đã hết lượt!" });
+    }
+
+    // Trừ số lượng voucher
+    await pool.query(
+      "UPDATE vouchers SET quantity = quantity - 1 WHERE voucherid = $1 AND quantity > 0",
+      [voucherId]
+    );
+
+    // Lưu voucher cho user
+    await pool.query(
+      "INSERT INTO uservouchers (userid, voucherid, isused, assignedat) VALUES ($1, $2, $3, NOW())",
+      [userId, voucherId, false]
+    );
+    console.log("Đã lưu voucher cho user:", userId, voucherId);
+    res.json({ success: true, message: "Đã lưu voucher cho user" });
+  } catch (err) {
+    console.error("Lỗi khi assign voucher:", err);
+    res.status(500).json({ error: err.message });
+  }
+};

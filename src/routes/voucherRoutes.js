@@ -13,6 +13,7 @@ import { getUserFromZaloId, verifyZaloToken } from "../middlewares/zaloAuth.js";
 import multer from "multer";
 import { getBannerHeaders, updateBannerHeaders } from "../controllers/voucherController.js";
 import { spinWheelWithLimit } from "../controllers/voucherController.js";
+import { assignVoucher } from "../controllers/voucherController.js";
 
 const upload = multer({ dest: "uploads/" });
 
@@ -22,6 +23,9 @@ router.get("/spin", spinVoucher);
 
 // Route quay vòng với giới hạn
 router.post("/spin-wheel-limit", verifyZaloToken, spinWheelWithLimit);
+
+// Route gán voucher cho user
+router.post("/assign", verifyZaloToken, assignVoucher);
 
 // Route lấy banner headers
 router.get("/banner-headers", getBannerHeaders);
@@ -270,11 +274,12 @@ router.post("/claim", verifyZaloToken, async (req, res) => {
   }
 });
 
-router.post("/assign", async (req, res) => {
+router.post("/assign", verifyZaloToken, async (req, res) => {
   console.log("===== /assign DEBUG =====");
   console.log("Body nhận được:", req.body);
 
-  const { zaloId, voucherId } = req.body;
+  const zaloId = req.user.zaloid; // Lấy từ token
+  const { voucherId } = req.body;
   if (!zaloId || !voucherId) {
     console.log("Thiếu zaloId hoặc voucherId");
     return res.status(400).json({ error: "Thiếu zaloId hoặc voucherId" });
