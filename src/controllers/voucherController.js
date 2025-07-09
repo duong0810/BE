@@ -325,14 +325,14 @@ export const updateBannerHeaders = async (req, res) => {
 // API quay vòng quay giới hạn 2 lần mỗi user (dùng bảng UserVouchers)
 export const spinWheelWithLimit = async (req, res) => {
   try {
-   const zaloId = req.user.zaloid;
+    const zaloId = req.user.zaloid;
     if (!zaloId) return res.status(400).json({ error: "Thiếu zaloId" });
 
     const pool = await getPool();
 
-    // Lấy UserID từ ZaloID
+    // Lấy userid từ zaloid
     const userResult = await pool.query(
-      "SELECT UserID FROM Users WHERE ZaloID = $1",
+      "SELECT userid FROM users WHERE zaloid = $1",
       [zaloId]
     );
     const user = userResult.rows[0];
@@ -340,9 +340,9 @@ export const spinWheelWithLimit = async (req, res) => {
 
     // Đếm số lượt quay "wheel" đã dùng
     const countResult = await pool.query(
-      `SELECT COUNT(*) FROM UserVouchers uv
-       JOIN Vouchers v ON uv.VoucherID = v.VoucherID
-       WHERE uv.UserID = $1 AND v.Category = 'wheel'`,
+      `SELECT COUNT(*) FROM uservouchers uv
+       JOIN vouchers v ON uv.voucherid = v.voucherid
+       WHERE uv.userid = $1 AND v.category = 'wheel'`,
       [user.userid]
     );
     const spinCount = parseInt(countResult.rows[0].count, 10);
@@ -351,10 +351,10 @@ export const spinWheelWithLimit = async (req, res) => {
       return res.status(409).json({ error: "Bạn đã hết lượt quay!" });
     }
 
-    // Random voucher loại "wheel" theo xác suất như cũ
+    // Random voucher loại "wheel" theo xác suất
     const voucherResult = await pool.query(`
-      SELECT * FROM Vouchers 
-      WHERE IsActive = true AND Probability IS NOT NULL AND Probability > 0 AND Category = 'wheel'
+      SELECT * FROM vouchers 
+      WHERE isactive = true AND probability IS NOT NULL AND probability > 0 AND category = 'wheel'
       ORDER BY RANDOM()
     `);
     const vouchers = voucherResult.rows;
@@ -382,9 +382,9 @@ export const spinWheelWithLimit = async (req, res) => {
       return res.status(500).json({ error: "Không tìm được voucher phù hợp" });
     }
 
-    // Lưu lượt quay vào UserVouchers
+    // Lưu lượt quay vào uservouchers
     await pool.query(
-      `INSERT INTO UserVouchers (UserID, VoucherID) VALUES ($1, $2)`,
+      `INSERT INTO uservouchers (userid, voucherid) VALUES ($1, $2)`,
       [user.userid, winner.voucher.voucherid]
     );
 
