@@ -1,6 +1,5 @@
 import express from "express";
 import { verifyZaloToken } from "../middlewares/zaloAuth.js";
-import { updateUserProfile } from "../controllers/userController.js";
 import { getUserProfile, updateUserProfile } from "../controllers/userController.js";
 
 const router = express.Router();
