@@ -1,5 +1,15 @@
 import { getPool } from "../config.js";
 
+function toDDMMYYYY(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d)) return dateStr;
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
 export const updateUserProfile = async (req, res) => {
   try {
     const zaloId = req.user.zaloid;
@@ -18,7 +28,11 @@ export const updateUserProfile = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    res.json({ success: true, user: result.rows[0] });
+    // Format lại ngày sinh
+    const user = result.rows[0];
+    user.birthday = toDDMMYYYY(user.birthday);
+
+    res.json({ success: true, user });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
