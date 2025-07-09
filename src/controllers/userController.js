@@ -47,3 +47,22 @@ export const updateUserProfile = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
+export const getUserProfile = async (req, res) => {
+  try {
+    const zaloId = req.user.zaloid;
+    const pool = await getPool();
+    const result = await pool.query(
+      `SELECT * FROM users WHERE zaloid = $1`,
+      [zaloId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    const user = result.rows[0];
+    user.birthday = toDDMMYYYY(user.birthday);
+    res.json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
