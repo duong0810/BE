@@ -13,7 +13,7 @@ import { getUserFromZaloId, verifyZaloToken } from "../middlewares/zaloAuth.js";
 import multer from "multer";
 import { getBannerHeaders, updateBannerHeaders } from "../controllers/voucherController.js";
 import { spinWheelWithLimit } from "../controllers/voucherController.js";
-import { assignVoucher } from "../controllers/voucherController.js";
+// import { assignVoucher } from "../controllers/voucherController.js";
 
 const upload = multer({ dest: "uploads/" });
 
@@ -25,7 +25,7 @@ router.get("/spin", spinVoucher);
 router.post("/spin-wheel-limit", verifyZaloToken, spinWheelWithLimit);
 
 // Route gán voucher cho user
-router.post("/assign", verifyZaloToken, assignVoucher);
+// router.post("/assign", verifyZaloToken, assignVoucher);
 
 // Route lấy banner headers
 router.get("/banner-headers", getBannerHeaders);
