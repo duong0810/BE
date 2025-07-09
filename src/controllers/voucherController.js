@@ -325,7 +325,7 @@ export const updateBannerHeaders = async (req, res) => {
 // API quay vòng quay giới hạn 2 lần mỗi user (dùng bảng UserVouchers)
 export const spinWheelWithLimit = async (req, res) => {
   try {
-    const { zaloId } = req.body;
+   const zaloId = req.user.zaloid;
     if (!zaloId) return res.status(400).json({ error: "Thiếu zaloId" });
 
     const pool = await getPool();

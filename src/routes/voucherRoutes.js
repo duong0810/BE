@@ -20,8 +20,8 @@ const router = express.Router();
 
 router.get("/spin", spinVoucher);
 
-//
-router.post("/spin-wheel-limit", spinWheelWithLimit);
+// Route quay vòng với giới hạn
+router.post("/spin-wheel-limit", verifyZaloToken, spinWheelWithLimit);
 
 // Route lấy banner headers
 router.get("/banner-headers", getBannerHeaders);
