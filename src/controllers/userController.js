@@ -1,5 +1,14 @@
 import { getPool } from "../config.js";
 
+function parseBirthday(birthday) {
+  // Nếu là dd/mm/yyyy thì chuyển sang yyyy-mm-dd
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(birthday)) {
+    const [day, month, year] = birthday.split("/");
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+  return birthday; // Nếu đã là yyyy-mm-dd thì giữ nguyên
+}
+
 function toDDMMYYYY(dateStr) {
   if (!dateStr) return "";
   const d = new Date(dateStr);
@@ -14,6 +23,7 @@ export const updateUserProfile = async (req, res) => {
   try {
     const zaloId = req.user.zaloid;
     const { fullname, gender, birthday, phone, address } = req.body;
+    const birthdayISO = birthday ? parseBirthday(birthday) : null;
 
     const pool = await getPool();
     const result = await pool.query(
@@ -21,7 +31,7 @@ export const updateUserProfile = async (req, res) => {
        SET fullname = $1, gender = $2, birthday = $3, phone = $4, address = $5
        WHERE zaloid = $6
        RETURNING *`,
-      [fullname, gender, birthday, phone, address, zaloId]
+      [fullname, gender, birthdayISO, phone, address, zaloId]
     );
 
     if (result.rows.length === 0) {
