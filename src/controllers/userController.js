@@ -66,3 +66,14 @@ export const getUserProfile = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
+// gọi thong tin tất cả user bên DA
+export const getAllUsers = async (req, res) => {
+  try {
+    const pool = await getPool();
+    const result = await pool.query("SELECT * FROM users ORDER BY userid DESC");
+    res.json({ success: true, users: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
