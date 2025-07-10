@@ -28,10 +28,9 @@ app.use(cors({
     'https://zalo.kosmosdevelopment.com',
     'https://h5.zdn.vn',
     'https://fe-gwkb.onrender.com', 
-    'http://localhost:3001', 
     'http://localhost:3000',
     'http://localhost:2999',
-    'http://localhost:3002',
+    'http://localhost:3001',
     'https://zalo.me'
   ],
   credentials: true,
