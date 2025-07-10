@@ -13,6 +13,7 @@ import productRoutes from './routes/productRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import zaloRoutes from "./routes/zaloRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import adminAuthRoutes from "./routes/adminAuthRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -62,7 +63,7 @@ app.use("/health", healthRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/uploads", uploadRoutes);
-
+app.use("/api/admin", adminAuthRoutes);
 // Route cho người dùng (đăng ký, đăng nhập, lấy thông tin)
 app.use("/api/users", userRoutes);
 
