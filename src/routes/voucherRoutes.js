@@ -9,12 +9,11 @@ import {
   spinVoucher,
   getWheelConfig
 } from "../controllers/voucherController.js";
-import { authMiddleware } from "../middlewares/auth.js";
 import { getUserFromZaloId, verifyZaloToken } from "../middlewares/zaloAuth.js"; // ← THÊM verifyZaloToken
 import multer from "multer";
 import { getBannerHeaders, updateBannerHeaders } from "../controllers/voucherController.js";
 import { spinWheelWithLimit } from "../controllers/voucherController.js";
-import { getUserVouchers } from "../controllers/voucherController.js"; // Thêm dòng này ở đầu file
+import { getUserVouchers } from "../controllers/voucherController.js"; 
 import { updateWheelConfig } from "../controllers/voucherController.js";
 import { authMiddleware, adminMiddleware } from "../middlewares/auth.js";
 
