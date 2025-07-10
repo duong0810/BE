@@ -417,3 +417,41 @@ export const getUserVouchers = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// API cập nhật số lượng ô vòng quay (chỉ cho admin)
+export const updateWheelConfig = async (req, res) => {
+  const { num_segments } = req.body;
+  if (!num_segments || isNaN(num_segments) || num_segments < 2) {
+    return res.status(400).json({ success: false, message: "Số ô không hợp lệ" });
+  }
+  try {
+    const pool = await getPool();
+    // Nếu đã có cấu hình thì update, chưa có thì insert
+    const check = await pool.query("SELECT * FROM wheel_config LIMIT 1");
+    if (check.rows.length > 0) {
+      await pool.query(
+        "UPDATE wheel_config SET num_segments = $1, updated_at = NOW() WHERE id = $2",
+        [num_segments, check.rows[0].id]
+      );
+    } else {
+      await pool.query(
+        "INSERT INTO wheel_config (num_segments) VALUES ($1)",
+        [num_segments]
+      );
+    }
+    res.json({ success: true, num_segments });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+// API lấy cấu hình số lượng ô vòng quay
+export const getWheelConfig = async (req, res) => {
+  try {
+    const pool = await getPool();
+    const result = await pool.query("SELECT num_segments FROM wheel_config LIMIT 1");
+    const num_segments = result.rows.length > 0 ? result.rows[0].num_segments : 8; // mặc định 8 ô
+    res.json({ success: true, num_segments });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

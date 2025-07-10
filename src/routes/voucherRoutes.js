@@ -6,7 +6,8 @@ import {
   findVoucher,
   updateVoucher,
   deleteVoucher,
-  spinVoucher
+  spinVoucher,
+  getWheelConfig
 } from "../controllers/voucherController.js";
 import { authMiddleware } from "../middlewares/auth.js";
 import { getUserFromZaloId, verifyZaloToken } from "../middlewares/zaloAuth.js"; // ← THÊM verifyZaloToken
@@ -14,6 +15,8 @@ import multer from "multer";
 import { getBannerHeaders, updateBannerHeaders } from "../controllers/voucherController.js";
 import { spinWheelWithLimit } from "../controllers/voucherController.js";
 import { getUserVouchers } from "../controllers/voucherController.js"; // Thêm dòng này ở đầu file
+import { updateWheelConfig } from "../controllers/voucherController.js";
+import { authMiddleware, adminMiddleware } from "../middlewares/auth.js";
 
 const upload = multer({ dest: "uploads/" });
 
@@ -26,6 +29,11 @@ router.post("/spin-wheel-limit", verifyZaloToken, spinWheelWithLimit);
 
 // API lấy danh sách voucher của user (dựa vào token)
 router.get("/my-vouchers", verifyZaloToken, getUserVouchers);
+
+// API lấy số lượng ô vòng quay cho FE
+router.get("/wheel-config", getWheelConfig);
+// API cập nhật số lượng ô vòng quay (chỉ cho admin)
+router.put("/wheel-config", authMiddleware, adminMiddleware, updateWheelConfig);
 
 // Route lấy banner headers
 router.get("/banner-headers", getBannerHeaders);
