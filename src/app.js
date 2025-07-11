@@ -14,6 +14,7 @@ import uploadRoutes from './routes/uploadRoutes.js';
 import zaloRoutes from "./routes/zaloRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import adminAuthRoutes from "./routes/adminAuthRoutes.js";
+import webhookRoutes from "./routes/webhookRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -65,6 +66,9 @@ app.use("/api/uploads", uploadRoutes);
 app.use("/api/admin", adminAuthRoutes);
 // Route cho người dùng (đăng ký, đăng nhập, lấy thông tin)
 app.use("/api/users", userRoutes);
+
+app.use(express.json()); // Để parse JSON body
+app.use("/api", webhookRoutes);
 
 // API auth
 app.use("/api/zalo", zaloRoutes);
