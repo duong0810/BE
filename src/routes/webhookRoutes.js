@@ -15,7 +15,7 @@ router.post("/zalo-webhook", (req, res) => {
     console.log("Webhook event:", event);
   }
 
-  // Trả về 200 OK để Zalo biết bạn đã nhận thành công
+  // Trả về 200 OK để Zalo biết bạn đã nhận thành công          
   res.status(200).send("OK");
 });
 
