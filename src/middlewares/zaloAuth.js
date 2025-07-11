@@ -51,7 +51,7 @@ export const verifyZaloToken = (req, res, next) => {
  */
 export const zaloAuthMiddleware = async (req, res, next) => {
   const accessToken = req.headers['zalo-access-token'] || req.headers['access-token'];
-  
+  console.log('Access token FE:', accessToken);
   if (!accessToken) {
     return res.status(401).json({ 
       success: false, 
