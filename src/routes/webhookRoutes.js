@@ -2,6 +2,7 @@ import express from "express";
 const router = express.Router();
 
 router.post("/zalo-webhook", (req, res) => {
+  console.log("Webhook body:", req.body);
   const event = req.body;
 
   // Xử lý sự kiện "follow"
