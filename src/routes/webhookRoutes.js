@@ -1,8 +1,13 @@
-import { pool } from "../config.js"; // hoặc import đúng theo cách bạn kết nối DB
+import express from "express";
+import { getPool } from "../config.js";
+
+const router = express.Router();
 
 router.post("/zalo-webhook", async (req, res) => {
   console.log("Webhook body:", req.body);
   const event = req.body;
+
+  const pool = await getPool();
 
   if (event.event_name === "follow") {
     const userId = event.user_id_by_app;
@@ -25,3 +30,5 @@ router.post("/zalo-webhook", async (req, res) => {
 
   res.status(200).send("OK");
 });
+
+export default router;
