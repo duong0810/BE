@@ -26,7 +26,7 @@ const app = express();
 // CORS configuration - MUST BE FIRST
 app.use(cors({
   origin: [
-    'https://zalo.kosmosdevelopment.com',
+    'https://be-sgv1.onrender.com',
     'https://h5.zdn.vn',
     'https://fe-gwkb.onrender.com', 
     'http://localhost:3000',
