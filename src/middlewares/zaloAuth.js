@@ -50,17 +50,22 @@ export const verifyZaloToken = (req, res, next) => {
  * Middleware xác thực Zalo access token
  */
 export const zaloAuthMiddleware = async (req, res, next) => {
-  const accessToken = req.headers['zalo-access-token'] || req.headers['access-token'];
-  
+  // Lấy access token từ header Authorization: Bearer <token>
+  const authHeader = req.headers['authorization'];
+  let accessToken = null;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    accessToken = authHeader.split(' ')[1];
+  }
+
   if (!accessToken) {
-    return res.status(401).json({ 
-      success: false, 
-      message: "Thiếu Zalo access token" 
+    return res.status(401).json({
+      success: false,
+      message: "Thiếu Zalo access token trong header Authorization"
     });
   }
 
   try {
-    // Verify token với Zalo API
+    // Gọi API Zalo để xác thực access token
     const userInfoResponse = await axios.get('https://graph.zalo.me/v2.0/me', {
       headers: {
         'access_token': accessToken
@@ -69,52 +74,52 @@ export const zaloAuthMiddleware = async (req, res, next) => {
         fields: 'id,name'
       }
     });
-    
+
     const zaloUserInfo = userInfoResponse.data;
-    
+
     if (!zaloUserInfo.id) {
       return res.status(401).json({
         success: false,
-        message: "Access token không hợp lệ"
+        message: "Access token không hợp lệ hoặc không lấy được thông tin user từ Zalo"
       });
     }
-    
+
     // Lấy thông tin user từ database
     const pool = await getPool();
     const userResult = await pool.query(
       "SELECT * FROM users WHERE zaloid = $1",
       [zaloUserInfo.id]
     );
-    
+
     if (userResult.rows.length === 0) {
       return res.status(404).json({
         success: false,
         message: "User chưa đăng ký trong hệ thống"
       });
     }
-    
-    // Gán thông tin user vào request
-    req.zaloUser = {
+
+    // Gán thông tin user vào request (chuẩn hóa: req.user)
+    req.user = {
       zaloId: zaloUserInfo.id,
       name: zaloUserInfo.name,
       userId: userResult.rows[0].userid,
       userInfo: userResult.rows[0]
     };
-    
+
     next();
   } catch (error) {
-    console.error("Lỗi xác thực Zalo token:", error);
-    
+    console.error("Lỗi xác thực Zalo token:", error?.response?.data || error);
+
     if (error.response?.status === 401) {
       return res.status(401).json({
         success: false,
         message: "Access token không hợp lệ hoặc đã hết hạn"
       });
     }
-    
+
     return res.status(500).json({
       success: false,
-      message: "Lỗi server khi xác thực"
+      message: "Lỗi server khi xác thực Zalo access token"
     });
   }
 };

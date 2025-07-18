@@ -1,7 +1,7 @@
 import express from 'express';
 import axios from 'axios';
 import ZaloAPI from '../utils/zaloApi.js';
-import { generateZaloToken, verifyZaloToken } from '../middlewares/zaloAuth.js';
+import { generateZaloToken, verifyZaloToken, zaloAuthMiddleware } from '../middlewares/zaloAuth.js';
 import { getPool } from '../config.js';
 
 const router = express.Router();
@@ -134,7 +134,7 @@ router.post('/auth', async (req, res) => {
 });
 
 // Route để lấy thông tin user hiện tại
-router.get('/me', verifyZaloToken, (req, res) => {
+router.get('/me', zaloAuthMiddleware, (req, res) => {
   res.json({
     success: true,
     user: req.user
@@ -142,7 +142,7 @@ router.get('/me', verifyZaloToken, (req, res) => {
 });
 
 // Route để cập nhật thông tin user
-router.put('/update', verifyZaloToken, async (req, res) => {
+router.put('/update', zaloAuthMiddleware, async (req, res) => {
   try {
     const { name, phone } = req.body;
     const pool = await getPool();
