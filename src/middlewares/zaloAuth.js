@@ -64,8 +64,8 @@ export const zaloAuthMiddleware = async (req, res, next) => {
     // Lấy thông tin user từ database
     const pool = await getPool();
     const userResult = await pool.query(
-      "SELECT * FROM users WHERE zaloid = $1",
-      [userInfo.id]
+      "SELECT * FROM users WHERE TRIM(zaloid) = $1",
+      [userInfo.id.trim()]
     );
 
     if (userResult.rows.length === 0) {
