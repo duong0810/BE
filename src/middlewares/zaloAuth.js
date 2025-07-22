@@ -76,6 +76,8 @@ export const zaloAuthMiddleware = async (req, res, next) => {
     const zaloUserInfo = userInfoResponse.data;
 
     if (!zaloUserInfo.id) {
+      // Thêm log chi tiết lỗi trả về từ Zalo
+      console.error("Zalo API response:", zaloUserInfo);
       return res.status(401).json({
         success: false,
         message: "Access token không hợp lệ hoặc không lấy được thông tin user từ Zalo"
@@ -106,7 +108,13 @@ export const zaloAuthMiddleware = async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.error("Lỗi xác thực Zalo token:", error?.response?.data || error);
+    // Thêm log chi tiết lỗi từ axios
+    if (error.response) {
+      console.error("Zalo API error status:", error.response.status);
+      console.error("Zalo API error data:", error.response.data);
+    } else {
+      console.error("Zalo API error:", error.message);
+    }
 
     if (error.response?.status === 401) {
       return res.status(401).json({
