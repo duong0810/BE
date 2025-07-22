@@ -50,45 +50,22 @@ export const verifyZaloToken = (req, res, next) => {
  * Middleware xác thực Zalo access token
  */
 export const zaloAuthMiddleware = async (req, res, next) => {
-  // Lấy access token từ header Authorization: Bearer <token>
-  const authHeader = req.headers['authorization'];
-  let accessToken = null;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    accessToken = authHeader.split(' ')[1];
-  }
+  // Lấy userInfo từ body (hoặc client gửi lên)
+  const { userInfo } = req.body;
 
-  if (!accessToken) {
+  if (!userInfo || !userInfo.id) {
     return res.status(401).json({
       success: false,
-      message: "Thiếu Zalo access token trong header Authorization"
+      message: "Thiếu thông tin user từ Zalo Mini App"
     });
   }
 
   try {
-    // Gọi API Zalo để xác thực access token
-    const userInfoResponse = await axios.get('https://graph.zalo.me/v2.0/me', {
-      params: {
-        access_token: accessToken,
-        fields: 'id,name'
-      }
-    });
-
-    const zaloUserInfo = userInfoResponse.data;
-
-    if (!zaloUserInfo.id) {
-      // Thêm log chi tiết lỗi trả về từ Zalo
-      console.error("Zalo API response:", zaloUserInfo);
-      return res.status(401).json({
-        success: false,
-        message: "Access token không hợp lệ hoặc không lấy được thông tin user từ Zalo"
-      });
-    }
-
     // Lấy thông tin user từ database
     const pool = await getPool();
     const userResult = await pool.query(
       "SELECT * FROM users WHERE zaloid = $1",
-      [zaloUserInfo.id]
+      [userInfo.id]
     );
 
     if (userResult.rows.length === 0) {
@@ -98,34 +75,20 @@ export const zaloAuthMiddleware = async (req, res, next) => {
       });
     }
 
-    // Gán thông tin user vào request (chuẩn hóa: req.user)
+    // Gán thông tin user vào request
     req.user = {
-      zaloId: zaloUserInfo.id,
-      name: zaloUserInfo.name,
+      zaloId: userInfo.id,
+      name: userInfo.name,
       userId: userResult.rows[0].userid,
       userInfo: userResult.rows[0]
     };
 
     next();
   } catch (error) {
-    // Thêm log chi tiết lỗi từ axios
-    if (error.response) {
-      console.error("Zalo API error status:", error.response.status);
-      console.error("Zalo API error data:", error.response.data);
-    } else {
-      console.error("Zalo API error:", error.message);
-    }
-
-    if (error.response?.status === 401) {
-      return res.status(401).json({
-        success: false,
-        message: "Access token không hợp lệ hoặc đã hết hạn"
-      });
-    }
-
+    console.error("Lỗi khi xác thực user từ Zalo Mini App:", error);
     return res.status(500).json({
       success: false,
-      message: "Lỗi server khi xác thực Zalo access token"
+      message: "Lỗi server khi xác thực user từ Zalo Mini App"
     });
   }
 };
