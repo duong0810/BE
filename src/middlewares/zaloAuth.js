@@ -67,10 +67,8 @@ export const zaloAuthMiddleware = async (req, res, next) => {
   try {
     // Gọi API Zalo để xác thực access token
     const userInfoResponse = await axios.get('https://graph.zalo.me/v2.0/me', {
-      headers: {
-        'access_token': accessToken
-      },
       params: {
+        access_token: accessToken,
         fields: 'id,name'
       }
     });
