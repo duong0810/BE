@@ -50,10 +50,15 @@ export const verifyZaloToken = (req, res, next) => {
  * Middleware xác thực Zalo access token
  */
 export const zaloAuthMiddleware = async (req, res, next) => {
-  // Lấy userInfo từ body (hoặc client gửi lên)
-  const { userInfo } = req.body;
+  // Ưu tiên lấy zaloid từ JWT token (req.user), nếu không có thì lấy từ body
+  let zaloid = null;
+  if (req.user && req.user.zaloid) {
+    zaloid = req.user.zaloid;
+  } else if (req.body.userInfo && req.body.userInfo.id) {
+    zaloid = req.body.userInfo.id;
+  }
 
-  if (!userInfo || !userInfo.id) {
+  if (!zaloid) {
     return res.status(401).json({
       success: false,
       message: "Thiếu thông tin user từ Zalo Mini App"
@@ -65,7 +70,7 @@ export const zaloAuthMiddleware = async (req, res, next) => {
     const pool = await getPool();
     const userResult = await pool.query(
       "SELECT * FROM users WHERE TRIM(zaloid) = $1",
-      [userInfo.id.trim()]
+      [zaloid.trim()]
     );
     console.log("Kết quả truy vấn user:", userResult.rows);
 
@@ -78,8 +83,8 @@ export const zaloAuthMiddleware = async (req, res, next) => {
 
     // Gán thông tin user vào request
     req.user = {
-      zaloId: userInfo.id,
-      name: userInfo.name,
+      zaloid: zaloid,
+      name: userResult.rows[0].fullname,
       userId: userResult.rows[0].userid,
       userInfo: userResult.rows[0]
     };
