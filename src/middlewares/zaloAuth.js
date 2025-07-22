@@ -63,11 +63,11 @@ export const zaloAuthMiddleware = async (req, res, next) => {
   try {
     // Lấy thông tin user từ database
     const pool = await getPool();
-    console.log("ZaloID truy vấn:", userInfo.id, "| Sau trim:", userInfo.id.trim());
     const userResult = await pool.query(
       "SELECT * FROM users WHERE TRIM(zaloid) = $1",
       [userInfo.id.trim()]
     );
+    console.log("Kết quả truy vấn user:", userResult.rows);
 
     if (userResult.rows.length === 0) {
       return res.status(404).json({
