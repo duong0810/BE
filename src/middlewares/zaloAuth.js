@@ -66,6 +66,7 @@ export const zaloAuthMiddleware = async (req, res, next) => {
   }
 
   console.log('[zaloAuthMiddleware][DEBUG] zaloid from token/body:', zaloid, zaloid ? zaloid.length : 'undefined');
+  console.log('[zaloAuthMiddleware][DEBUG] typeof zaloid:', typeof zaloid);
 
   if (!zaloid) {
     console.warn('[zaloAuthMiddleware] Thiếu zaloid, trả lỗi 401');
@@ -79,8 +80,8 @@ export const zaloAuthMiddleware = async (req, res, next) => {
     // Lấy thông tin user từ database
     const pool = await getPool();
     const userResult = await pool.query(
-      "SELECT * FROM users WHERE TRIM(zaloid) = TRIM($1)",
-      [zaloid.trim()]
+      "SELECT * FROM users WHERE zaloid = $1",
+      [zaloid]
     );
     console.log('[zaloAuthMiddleware][DEBUG] Kết quả truy vấn user:', userResult.rows);
     if (userResult.rows.length > 0) {
