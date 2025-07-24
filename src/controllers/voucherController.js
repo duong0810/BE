@@ -325,25 +325,17 @@ export const updateBannerHeaders = async (req, res) => {
 // API quay vòng quay giới hạn 2 lần mỗi user (dùng bảng UserVouchers)
 export const spinWheelWithLimit = async (req, res) => {
   try {
-    const zaloId = req.user.zaloid;
-    if (!zaloId) return res.status(400).json({ error: "Thiếu zaloId" });
+    const userId = req.user.userId;
+    if (!userId) return res.status(400).json({ error: "Thiếu userId" });
 
     const pool = await getPool();
-
-    // Lấy userid từ zaloid
-    const userResult = await pool.query(
-      "SELECT userid FROM users WHERE zaloid = $1",
-      [zaloId]
-    );
-    const user = userResult.rows[0];
-    if (!user) return res.status(404).json({ error: "Không tìm thấy user" });
 
     // Đếm số lượt quay "wheel" đã dùng
     const countResult = await pool.query(
       `SELECT COUNT(*) FROM uservouchers uv
        JOIN vouchers v ON uv.voucherid = v.voucherid
        WHERE uv.userid = $1 AND v.category = 'wheel'`,
-      [user.userid]
+      [userId]
     );
     const spinCount = parseInt(countResult.rows[0].count, 10);
 
@@ -385,7 +377,7 @@ export const spinWheelWithLimit = async (req, res) => {
     // Lưu lượt quay vào uservouchers
     await pool.query(
       `INSERT INTO uservouchers (userid, voucherid) VALUES ($1, $2)`,
-      [user.userid, winner.voucher.voucherid]
+      [userId, winner.voucher.voucherid]
     );
 
     return res.json({ voucher: winner.voucher });
@@ -397,20 +389,15 @@ export const spinWheelWithLimit = async (req, res) => {
 
 export const getUserVouchers = async (req, res) => {
   try {
-    const zaloId = req.user.zaloid;
+    const userId = req.user.userId;
+    if (!userId) return res.json([]);
     const pool = await getPool();
-    const userResult = await pool.query(
-      "SELECT userid FROM users WHERE zaloid = $1",
-      [zaloId]
-    );
-    const user = userResult.rows[0];
-    if (!user) return res.json([]);
     const vouchers = await pool.query(
       `SELECT v.* FROM uservouchers uv
        JOIN vouchers v ON uv.voucherid = v.voucherid
        WHERE uv.userid = $1
        ORDER BY uv.assignedat DESC`,
-      [user.userid]
+      [userId]
     );
     res.json({ data: vouchers.rows });
   } catch (err) {

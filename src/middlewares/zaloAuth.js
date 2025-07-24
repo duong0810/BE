@@ -38,15 +38,27 @@ export const verifyZaloToken = (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      console.error('[verifyZaloToken] Lỗi verify token (jwt.verify):', err);
+      return res.status(401).json({
+        success: false,
+        message: 'Token không hợp lệ (verify fail)'
+      });
+    }
     console.log('[verifyZaloToken] Token decoded:', decoded);
+    if (!decoded || !decoded.zaloid) {
+      console.error('[verifyZaloToken] Token decode ra nhưng không có zaloid:', decoded);
+    }
     req.user = decoded;
     next();
   } catch (error) {
-    console.error('[verifyZaloToken] Lỗi verify token:', error);
+    console.error('[verifyZaloToken] Lỗi ngoài:', error);
     return res.status(401).json({
       success: false,
-      message: 'Token không hợp lệ'
+      message: 'Token không hợp lệ (outer catch)'
     });
   }
 };
@@ -67,9 +79,11 @@ export const zaloAuthMiddleware = async (req, res, next) => {
 
   console.log('[zaloAuthMiddleware][DEBUG] zaloid from token/body:', zaloid, zaloid ? zaloid.length : 'undefined');
   console.log('[zaloAuthMiddleware][DEBUG] typeof zaloid:', typeof zaloid);
-
   if (!zaloid) {
     console.warn('[zaloAuthMiddleware] Thiếu zaloid, trả lỗi 401');
+    if (req.user) {
+      console.warn('[zaloAuthMiddleware] req.user hiện tại:', req.user);
+    }
     return res.status(401).json({
       success: false,
       message: "Thiếu thông tin user từ Zalo Mini App"
