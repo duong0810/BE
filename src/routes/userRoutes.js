@@ -1,14 +1,14 @@
 import express from "express";
-import { authMiddleware, adminMiddleware } from "../middlewares/auth.js";
 import { verifyZaloToken, zaloAuthMiddleware } from "../middlewares/zaloAuth.js";
+import { getUserProfile, updateUserProfile } from "../controllers/userController.js";
 import { getUserProfile, updateUserProfile, getAllUsers } from "../controllers/userController.js";
 
 const router = express.Router();
 
-router.put("/me", zaloAuthMiddleware, updateUserProfile);
-router.get("/me", zaloAuthMiddleware, getUserProfile);
+router.put("/me", verifyZaloToken, zaloAuthMiddleware, updateUserProfile);
+router.get("/me", verifyZaloToken, zaloAuthMiddleware, getUserProfile);
 
 // API lấy danh sách toàn bộ user (chỉ cho admin)
-router.get("/", authMiddleware, adminMiddleware, getAllUsers);
+router.get("/", verifyZaloToken, zaloAuthMiddleware, getAllUsers);
 
 export default router;
