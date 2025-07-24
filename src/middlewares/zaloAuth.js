@@ -26,9 +26,12 @@ export const generateZaloToken = (userData) => {
  */
 export const verifyZaloToken = (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    
+    const authHeader = req.headers.authorization;
+    console.log('[verifyZaloToken] Authorization header:', authHeader);
+    const token = authHeader?.split(' ')[1];
+
     if (!token) {
+      console.warn('[verifyZaloToken] Không có token');
       return res.status(401).json({
         success: false,
         message: 'Token không được cung cấp'
@@ -36,9 +39,11 @@ export const verifyZaloToken = (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('[verifyZaloToken] Token decoded:', decoded);
     req.user = decoded;
     next();
   } catch (error) {
+    console.error('[verifyZaloToken] Lỗi verify token:', error);
     return res.status(401).json({
       success: false,
       message: 'Token không hợp lệ'
@@ -51,6 +56,8 @@ export const verifyZaloToken = (req, res, next) => {
  */
 export const zaloAuthMiddleware = async (req, res, next) => {
   // Ưu tiên lấy zaloid từ JWT token (req.user), nếu không có thì lấy từ body
+  console.log('[zaloAuthMiddleware] req.user:', req.user);
+  console.log('[zaloAuthMiddleware] req.body.userInfo:', req.body?.userInfo);
   let zaloid = null;
   if (req.user && req.user.zaloid) {
     zaloid = req.user.zaloid;
@@ -59,6 +66,7 @@ export const zaloAuthMiddleware = async (req, res, next) => {
   }
 
   if (!zaloid) {
+    console.warn('[zaloAuthMiddleware] Thiếu zaloid, trả lỗi 401');
     return res.status(401).json({
       success: false,
       message: "Thiếu thông tin user từ Zalo Mini App"
@@ -72,9 +80,10 @@ export const zaloAuthMiddleware = async (req, res, next) => {
       "SELECT * FROM users WHERE TRIM(zaloid) = $1",
       [zaloid.trim()]
     );
-    console.log("Kết quả truy vấn user:", userResult.rows);
+    console.log('[zaloAuthMiddleware] Kết quả truy vấn user:', userResult.rows);
 
     if (userResult.rows.length === 0) {
+      console.warn('[zaloAuthMiddleware] Không tìm thấy user trong DB với zaloid:', zaloid);
       return res.status(404).json({
         success: false,
         message: "User chưa đăng ký trong hệ thống"
@@ -91,7 +100,7 @@ export const zaloAuthMiddleware = async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.error("Lỗi khi xác thực user từ Zalo Mini App:", error);
+    console.error('[zaloAuthMiddleware] Lỗi khi xác thực user từ Zalo Mini App:', error);
     return res.status(500).json({
       success: false,
       message: "Lỗi server khi xác thực user từ Zalo Mini App"
