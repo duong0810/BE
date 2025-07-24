@@ -65,6 +65,8 @@ export const zaloAuthMiddleware = async (req, res, next) => {
     zaloid = req.body.userInfo.id;
   }
 
+  console.log('[zaloAuthMiddleware][DEBUG] zaloid from token/body:', zaloid, zaloid ? zaloid.length : 'undefined');
+
   if (!zaloid) {
     console.warn('[zaloAuthMiddleware] Thiếu zaloid, trả lỗi 401');
     return res.status(401).json({
@@ -77,10 +79,15 @@ export const zaloAuthMiddleware = async (req, res, next) => {
     // Lấy thông tin user từ database
     const pool = await getPool();
     const userResult = await pool.query(
-      "SELECT * FROM users WHERE TRIM(zaloid) = $1",
+      "SELECT * FROM users WHERE TRIM(zaloid) = TRIM($1)",
       [zaloid.trim()]
     );
-    console.log('[zaloAuthMiddleware] Kết quả truy vấn user:', userResult.rows);
+    console.log('[zaloAuthMiddleware][DEBUG] Kết quả truy vấn user:', userResult.rows);
+    if (userResult.rows.length > 0) {
+      const dbZaloid = userResult.rows[0].zaloid;
+      console.log('[zaloAuthMiddleware][DEBUG] zaloid from DB:', dbZaloid, dbZaloid ? dbZaloid.length : 'undefined');
+      console.log('[zaloAuthMiddleware][DEBUG] So sánh:', zaloid === dbZaloid ? 'MATCH' : 'NOT MATCH');
+    }
 
     if (userResult.rows.length === 0) {
       console.warn('[zaloAuthMiddleware] Không tìm thấy user trong DB với zaloid:', zaloid);
@@ -106,7 +113,7 @@ export const zaloAuthMiddleware = async (req, res, next) => {
       message: "Lỗi server khi xác thực user từ Zalo Mini App"
     });
   }
-};
+}
 
 /**
  * Middleware lấy thông tin user từ zaloId (không bắt buộc xác thực)
