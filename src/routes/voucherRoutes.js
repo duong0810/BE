@@ -27,7 +27,7 @@ router.get("/spin", spinVoucher);
 router.post("/spin-wheel-limit", zaloAuthMiddleware, spinWheelWithLimit);
 
 // API lấy danh sách voucher của user (dựa vào token)
-router.get("/my-vouchers", zaloAuthMiddleware, getUserVouchers);
+router.get("/my-vouchers", verifyZaloToken, zaloAuthMiddleware, getUserVouchers);
 
 // API lấy số lượng ô vòng quay cho FE
 router.get("/wheel-config", getWheelConfig);
