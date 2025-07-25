@@ -24,7 +24,7 @@ const router = express.Router();
 router.get("/spin", spinVoucher);
 
 // Route quay vòng với giới hạn
-router.post("/spin-wheel-limit", zaloAuthMiddleware, spinWheelWithLimit);
+router.post("/spin-wheel-limit", verifyZaloToken, zaloAuthMiddleware, spinWheelWithLimit);
 
 // API lấy danh sách voucher của user (dựa vào token)
 router.get("/my-vouchers", verifyZaloToken, zaloAuthMiddleware, getUserVouchers);
@@ -162,7 +162,7 @@ router.get("/with-user-count", async (req, res) => {
 });
 
 // --- API CLAIM VOUCHER ---
-router.post("/claim", zaloAuthMiddleware, async (req, res) => {
+router.post("/claim", verifyZaloToken, zaloAuthMiddleware, async (req, res) => {
   try {
     // ✅ LẤY ZALOID TỪ JWT TOKEN (đã verify trong middleware)
     const zaloId = req.user.zaloid; // từ verifyZaloToken middleware
@@ -281,7 +281,7 @@ router.post("/claim", zaloAuthMiddleware, async (req, res) => {
   }
 });
 
-router.post("/assign", zaloAuthMiddleware, async (req, res) => {
+router.post("/assign", verifyZaloToken, zaloAuthMiddleware, async (req, res) => {
   console.log("===== /assign DEBUG =====");
   console.log("Body nhận được:", req.body);
 
