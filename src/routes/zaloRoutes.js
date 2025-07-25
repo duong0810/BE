@@ -142,7 +142,7 @@ router.get('/me', verifyZaloToken, zaloAuthMiddleware, (req, res) => {
 });
 
 // Route để cập nhật thông tin user
-router.put('/update', zaloAuthMiddleware, async (req, res) => {
+router.put('/update', verifyZaloToken, zaloAuthMiddleware, async (req, res) => {
   try {
     const { name, phone } = req.body;
     const pool = await getPool();
