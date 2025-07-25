@@ -67,6 +67,10 @@ export const verifyZaloToken = (req, res, next) => {
  * Middleware xác thực Zalo access token
  */
 export const zaloAuthMiddleware = async (req, res, next) => {
+  // Nếu là admin thì bỏ qua kiểm tra zaloid
+  if (req.user && req.user.role === 'admin') {
+    return next();
+  }
   // Ưu tiên lấy zaloid từ JWT token (req.user), nếu không có thì lấy từ body
   console.log('[zaloAuthMiddleware] req.user:', req.user);
   console.log('[zaloAuthMiddleware] req.body.userInfo:', req.body?.userInfo);
