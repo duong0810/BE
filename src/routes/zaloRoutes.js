@@ -134,7 +134,7 @@ router.post('/auth', async (req, res) => {
 });
 
 // Route để lấy thông tin user hiện tại
-router.get('/me', zaloAuthMiddleware, (req, res) => {
+router.get('/me', verifyZaloToken, zaloAuthMiddleware, (req, res) => {
   res.json({
     success: true,
     user: req.user
