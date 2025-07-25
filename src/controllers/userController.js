@@ -77,3 +77,51 @@ export const getAllUsers = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+export const deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const pool = await getPool();
+    // Xoá các voucher của user trước (nếu có)
+    await pool.query("DELETE FROM uservouchers WHERE userid = $1", [id]);
+    // Xoá user
+    const result = await pool.query("DELETE FROM users WHERE userid = $1 RETURNING *", [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "User không tồn tại" });
+    }
+    res.json({ success: true, message: "Xoá user thành công" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+export const adminUpdateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { username, fullname, phone, email, role, gender, birthday, address } = req.body;
+    const birthdayISO = birthday ? parseBirthday(birthday) : null;
+    const pool = await getPool();
+    const result = await pool.query(
+      `UPDATE users SET 
+        username = $2,
+        fullname = $3,
+        phone = $4,
+        email = $5,
+        role = $6,
+        gender = $7,
+        birthday = $8,
+        address = $9,
+        updatedat = NOW()
+      WHERE userid = $1 RETURNING *`,
+      [id, username, fullname, phone, email, role, gender, birthdayISO, address]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "User không tồn tại" });
+    }
+    const user = result.rows[0];
+    user.birthday = toDDMMYYYY(user.birthday);
+    res.json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
