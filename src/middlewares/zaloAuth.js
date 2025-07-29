@@ -45,7 +45,7 @@ export const verifyZaloToken = (req, res, next) => {
       console.error('[verifyZaloToken] Lỗi verify token (jwt.verify):', err);
       return res.status(401).json({
         success: false,
-        message: 'Token không hợp lệ (verify fail)'
+        // message: 'Token không hợp lệ (verify fail)'
       });
     }
     console.log('[verifyZaloToken] Token decoded:', decoded);
@@ -58,7 +58,7 @@ export const verifyZaloToken = (req, res, next) => {
     console.error('[verifyZaloToken] Lỗi ngoài:', error);
     return res.status(401).json({
       success: false,
-      message: 'Token không hợp lệ (outer catch)'
+      // message: 'Token không hợp lệ (outer catch)'
     });
   }
 };
