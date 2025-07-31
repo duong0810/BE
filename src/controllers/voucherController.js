@@ -393,7 +393,8 @@ export const getUserVouchers = async (req, res) => {
     if (!userId) return res.json([]);
     const pool = await getPool();
     const vouchers = await pool.query(
-      `SELECT v.* FROM uservouchers uv
+      `SELECT v.*, uv.assignedat AS "collectedAt"
+       FROM uservouchers uv
        JOIN vouchers v ON uv.voucherid = v.voucherid
        WHERE uv.userid = $1
        ORDER BY uv.assignedat DESC`,
