@@ -449,7 +449,8 @@ function formatPhoneNumber(phone) {
   let p = phone.replace(/[^\d]/g, '');
   if (p.startsWith('0')) p = '+84' + p.slice(1);
   else if (!p.startsWith('+84')) p = '+84' + p;
-  return p;
+  // Xóa mọi dấu cách nếu có
+  return p.replace(/\s+/g, '');
 }
 
 // gán voucher vào 1 sdt bất kỳ - 11/08/2025 //
