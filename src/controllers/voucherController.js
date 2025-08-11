@@ -463,9 +463,9 @@ export const assignVoucherByPhone = async (req, res) => {
     if (userResult.rows.length === 0) {
       // Nếu chưa có user, tạo mới user với số điện thoại này
       const newUser = await pool.query(
-        "INSERT INTO users (phone, createdat) VALUES ($1, NOW()) RETURNING userid",
-        [cleanPhone]
-      );
+      "INSERT INTO users (phone, username, createdat) VALUES ($1, $2, NOW()) RETURNING userid",
+      [cleanPhone, cleanPhone] // hoặc `${cleanPhone}` làm username
+    );
       userId = newUser.rows[0].userid;
     } else {
       userId = userResult.rows[0].userid;
