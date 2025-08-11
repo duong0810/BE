@@ -9,10 +9,11 @@ const router = express.Router();
 // ✅ HÀM CHUẨN HÓA SỐ ĐIỆN THOẠI
 const formatPhoneNumber = (phone) => {
   if (!phone) return null;
-  let p = phone.replace(/[^\d]/g, '');
-  if (p.startsWith('0')) p = '+84' + p.slice(1);
-  else if (!p.startsWith('+84')) p = '+84' + p;
-  return p; // Không có dấu cách
+  let p = phone.replace(/[^\d+]/g, '');
+  if (p.startsWith('+84')) return p;
+  if (p.startsWith('84')) return '+84' + p.slice(2);
+  if (p.startsWith('0')) return '+84' + p.slice(1);
+  return p;
 };
   
 // Route để xử lý đăng nhập từ Zalo Mini App
