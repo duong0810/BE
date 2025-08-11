@@ -443,3 +443,51 @@ export const getWheelConfig = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+// gán voucher vào 1 sdt bất kỳ - 11/08/2025 //
+export const assignVoucherByPhone = async (req, res) => {
+  try {
+    const { phone, voucherId } = req.body;
+    const pool = await getPool();
+
+    // Chuẩn hóa số điện thoại (bạn có thể dùng hàm formatPhoneNumber nếu đã có)
+    const cleanPhone = phone.replace(/[^\d]/g, '');
+
+    // Tìm user theo số điện thoại
+    let userResult = await pool.query(
+      "SELECT * FROM users WHERE phone = $1",
+      [cleanPhone]
+    );
+
+    let userId;
+    if (userResult.rows.length === 0) {
+      // Nếu chưa có user, tạo mới user với số điện thoại này
+      const newUser = await pool.query(
+        "INSERT INTO users (phone, createdat) VALUES ($1, NOW()) RETURNING userid",
+        [cleanPhone]
+      );
+      userId = newUser.rows[0].userid;
+    } else {
+      userId = userResult.rows[0].userid;
+    }
+
+    // Kiểm tra đã gán voucher này cho user chưa
+    const check = await pool.query(
+      "SELECT * FROM uservouchers WHERE userid = $1 AND voucherid = $2",
+      [userId, voucherId]
+    );
+    if (check.rows.length > 0) {
+      return res.status(400).json({ success: false, message: "User đã có voucher này" });
+    }
+
+    // Gán voucher cho user này
+    await pool.query(
+      "INSERT INTO uservouchers (userid, voucherid, isused, assignedat) VALUES ($1, $2, $3, NOW())",
+      [userId, voucherId, false]
+    );
+
+    res.json({ success: true, message: "Gán voucher thành công!" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};

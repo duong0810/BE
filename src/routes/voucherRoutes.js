@@ -16,6 +16,7 @@ import { spinWheelWithLimit } from "../controllers/voucherController.js";
 import { getUserVouchers } from "../controllers/voucherController.js"; 
 import { updateWheelConfig } from "../controllers/voucherController.js";
 import { authMiddleware, adminMiddleware } from "../middlewares/auth.js";
+import { assignVoucherByPhone } from "../controllers/voucherController.js";// 11/08/2025
 
 const upload = multer({ dest: "uploads/" });
 
@@ -439,6 +440,8 @@ router.get("/user-stats/:zaloId", async (req, res) => {
   }
 });
 
+// routes gán voucher vào sdt (/:id) 11/08/2025
+router.post("/assign-by-phone", authMiddleware, adminMiddleware, assignVoucherByPhone);
 
 // ĐẶT CÁC ROUTE ĐỘNG Ở CUỐI FILE
 router.get("/", getAllVouchers);

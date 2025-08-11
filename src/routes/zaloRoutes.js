@@ -116,7 +116,7 @@ router.post('/auth', async (req, res) => {
         zaloid: userData.zaloid,
         username: userData.username,
         fullname: userData.fullname,
-        phone: userData.phone, // ← SẼ HIỂN THỊ +84 372284930
+        phone: userData.phone, 
         avatar: userData.avatar,
         role: userData.role,
         status: userData.status
