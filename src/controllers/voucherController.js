@@ -446,11 +446,11 @@ export const getWheelConfig = async (req, res) => {
 
 // Hàm chuẩn hóa số điện thoại về dạng +84xxxxxxxxx
 function formatPhoneNumber(phone) {
-  let p = phone.replace(/[^\d]/g, '');
+  let p = phone.replace(/[^\d+]/g, ''); // Giữ dấu +
   if (p.startsWith('0')) p = '+84' + p.slice(1);
+  else if (p.startsWith('+84')) p = '+84' + p.slice(3);
   else if (!p.startsWith('+84')) p = '+84' + p;
-  // Xóa mọi dấu cách nếu có
-  return p.replace(/\s+/g, '');
+  return p.replace(/\s+/g, ''); // Xóa mọi dấu cách
 }
 
 // gán voucher vào 1 sdt bất kỳ - 11/08/2025 //
