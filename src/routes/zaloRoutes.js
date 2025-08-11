@@ -6,37 +6,15 @@ import { getPool } from '../config.js';
 
 const router = express.Router();
 
-// ✅ THÊM FUNCTION FORMAT PHONE NUMBER
+// ✅ HÀM CHUẨN HÓA SỐ ĐIỆN THOẠI
 const formatPhoneNumber = (phone) => {
   if (!phone) return null;
-  
-  // Remove any existing formatting
-  const cleanPhone = phone.replace(/[^\d]/g, '');
-  
-  // Check if it's Vietnamese number
-  if (cleanPhone.startsWith('84') && cleanPhone.length >= 10) {
-    // Format: 84372284930 → +84 372284930
-    const countryCode = cleanPhone.substring(0, 2); // 84
-    const mainNumber = cleanPhone.substring(2);      // 372284930
-    return `+${countryCode} ${mainNumber}`;
-  }
-  
-  // If it starts with 0, convert to +84 format
-  if (cleanPhone.startsWith('0') && cleanPhone.length >= 10) {
-    // Format: 0372284930 → +84 372284930
-    const mainNumber = cleanPhone.substring(1);      // 372284930
-    return `+84 ${mainNumber}`;
-  }
-  
-  // Default: just add + if it's all numbers
-  if (cleanPhone.length >= 10) {
-    return `+${cleanPhone}`;
-  }
-  
-  // Return original if can't format
-  return phone;
+  let p = phone.replace(/[^\d]/g, '');
+  if (p.startsWith('0')) p = '+84' + p.slice(1);
+  else if (!p.startsWith('+84')) p = '+84' + p;
+  return p; // Không có dấu cách
 };
-
+  
 // Route để xử lý đăng nhập từ Zalo Mini App
 router.post('/auth', async (req, res) => {
   try {
