@@ -444,16 +444,24 @@ export const getWheelConfig = async (req, res) => {
   }
 };
 
+// Hàm chuẩn hóa số điện thoại về dạng +84xxxxxxxxx
+function formatPhoneNumber(phone) {
+  let p = phone.replace(/[^\d]/g, '');
+  if (p.startsWith('0')) p = '+84' + p.slice(1);
+  else if (!p.startsWith('+84')) p = '+84' + p;
+  return p;
+}
+
 // gán voucher vào 1 sdt bất kỳ - 11/08/2025 //
 export const assignVoucherByPhone = async (req, res) => {
   try {
     const { phone, voucherId } = req.body;
     const pool = await getPool();
 
-    // Chuẩn hóa số điện thoại (bạn có thể dùng hàm formatPhoneNumber nếu đã có)
-    const cleanPhone = phone.replace(/[^\d]/g, '');
+    // Chuẩn hóa số điện thoại
+    const cleanPhone = formatPhoneNumber(phone);
 
-    // Tìm user theo số điện thoại
+    // Tìm user theo số điện thoại đã chuẩn hóa
     let userResult = await pool.query(
       "SELECT * FROM users WHERE phone = $1",
       [cleanPhone]
@@ -463,9 +471,9 @@ export const assignVoucherByPhone = async (req, res) => {
     if (userResult.rows.length === 0) {
       // Nếu chưa có user, tạo mới user với số điện thoại này
       const newUser = await pool.query(
-      "INSERT INTO users (phone, username, createdat) VALUES ($1, $2, NOW()) RETURNING userid",
-      [cleanPhone, cleanPhone] // hoặc `${cleanPhone}` làm username
-    );
+        "INSERT INTO users (phone, username, createdat) VALUES ($1, $2, NOW()) RETURNING userid",
+        [cleanPhone, cleanPhone]
+      );
       userId = newUser.rows[0].userid;
     } else {
       userId = userResult.rows[0].userid;
