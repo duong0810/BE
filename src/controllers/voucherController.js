@@ -525,7 +525,7 @@ export const updateUserVoucherStatus = async (req, res) => {
     if (isused) {
       const voucherId = result.rows[0].voucherid;
       const updateQty = await pool.query(
-        `UPDATE vouchers SET soluong = soluong - 1 WHERE voucherid = $1 AND soluong > 0`,
+        `UPDATE vouchers SET Quantity  = Quantity  - 1 WHERE voucherid = $1 AND Quantity  > 0`,
         [voucherId]
       );
       console.log(`[API] Update vouchers result:`, updateQty.rowCount);
