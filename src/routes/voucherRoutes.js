@@ -446,6 +446,9 @@ router.get("/user-stats/:zaloId", async (req, res) => {
 // routes gán voucher vào sdt (/:id) 11/08/2025
 router.post("/assign-by-phone", authMiddleware, adminMiddleware, assignVoucherByPhone);
 
+// routes cập nhật trạng thái sử dụng voucher
+router.put("/uservoucher/update-status", authMiddleware, updateUserVoucherStatus);
+
 // ĐẶT CÁC ROUTE ĐỘNG Ở CUỐI FILE
 router.get("/", getAllVouchers);
 router.get("/:id", findVoucher);

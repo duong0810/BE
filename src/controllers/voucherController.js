@@ -500,3 +500,25 @@ export const assignVoucherByPhone = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
+// cập nhật trạng thái xử dụng voucher 12/08/2025
+export const updateUserVoucherStatus = async (req, res) => {
+  const { uservoucherid, isused } = req.body;
+  if (!uservoucherid || typeof isused !== "boolean") {
+    return res.status(400).json({ success: false, message: "Thiếu uservoucherid hoặc isused" });
+  }
+  try {
+    const pool = await getPool();
+    let usedAtValue = isused ? 'NOW()' : 'NULL';
+    const result = await pool.query(
+      `UPDATE uservouchers SET isused = $1, usedat = ${usedAtValue} WHERE uservoucherid = $2 RETURNING *`,
+      [isused, uservoucherid]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Không tìm thấy uservoucher" });
+    }
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
