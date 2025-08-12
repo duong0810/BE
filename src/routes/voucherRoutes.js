@@ -17,6 +17,7 @@ import { getUserVouchers } from "../controllers/voucherController.js";
 import { updateWheelConfig } from "../controllers/voucherController.js";
 import { authMiddleware, adminMiddleware } from "../middlewares/auth.js";
 import { assignVoucherByPhone } from "../controllers/voucherController.js";// 11/08/2025
+import { updateUserVoucherStatus } from "../controllers/voucherController.js"; // 12/08
 
 const upload = multer({ dest: "uploads/" });
 
