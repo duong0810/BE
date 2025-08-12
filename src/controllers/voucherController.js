@@ -512,7 +512,7 @@ export const updateUserVoucherStatus = async (req, res) => {
     const pool = await getPool();
     let usedAtValue = isused ? 'NOW()' : 'NULL';
     const result = await pool.query(
-      `UPDATE uservouchers SET isused = $1, usedat = ${usedAtValue} WHERE uservoucherid = $2 RETURNING *`,
+      `UPDATE uservouchers SET isused = $1, usedat = (CASE WHEN $1 THEN NOW() ELSE NULL END) WHERE uservoucherid = $2 RETURNING *`,
       [isused, uservoucherid]
     );
     console.log(`[API] Update uservouchers result:`, result.rows);
