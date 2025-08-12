@@ -501,10 +501,11 @@ export const assignVoucherByPhone = async (req, res) => {
   }
 };
 
-// cập nhật trạng thái xử dụng voucher 12/08/2025
 export const updateUserVoucherStatus = async (req, res) => {
   const { uservoucherid, isused } = req.body;
+  console.log(`[API] updateUserVoucherStatus called with: uservoucherid=${uservoucherid}, isused=${isused}`);
   if (!uservoucherid || typeof isused !== "boolean") {
+    console.error("[API] Missing uservoucherid or isused");
     return res.status(400).json({ success: false, message: "Thiếu uservoucherid hoặc isused" });
   }
   try {
@@ -514,22 +515,25 @@ export const updateUserVoucherStatus = async (req, res) => {
       `UPDATE uservouchers SET isused = $1, usedat = ${usedAtValue} WHERE uservoucherid = $2 RETURNING *`,
       [isused, uservoucherid]
     );
+    console.log(`[API] Update uservouchers result:`, result.rows);
+
     if (result.rows.length === 0) {
+      console.error("[API] Không tìm thấy uservoucher");
       return res.status(404).json({ success: false, message: "Không tìm thấy uservoucher" });
     }
 
-    // THÊM ĐOẠN NÀY ĐỂ TRỪ SỐ LƯỢNG VOUCHER
     if (isused) {
-      // Lấy voucherid từ uservoucher vừa cập nhật
       const voucherId = result.rows[0].voucherid;
-      // Trừ số lượng nếu còn > 0
-      await pool.query(
+      const updateQty = await pool.query(
         `UPDATE vouchers SET soluong = soluong - 1 WHERE voucherid = $1 AND soluong > 0`,
         [voucherId]
       );
+      console.log(`[API] Update vouchers result:`, updateQty.rowCount);
     }
+
     res.json({ success: true, data: result.rows[0] });
   } catch (err) {
+    console.error("[API] Error:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 };
