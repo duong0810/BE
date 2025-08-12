@@ -517,6 +517,17 @@ export const updateUserVoucherStatus = async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: "Không tìm thấy uservoucher" });
     }
+
+    // THÊM ĐOẠN NÀY ĐỂ TRỪ SỐ LƯỢNG VOUCHER
+    if (isused) {
+      // Lấy voucherid từ uservoucher vừa cập nhật
+      const voucherId = result.rows[0].voucherid;
+      // Trừ số lượng nếu còn > 0
+      await pool.query(
+        `UPDATE vouchers SET soluong = soluong - 1 WHERE voucherid = $1 AND soluong > 0`,
+        [voucherId]
+      );
+    }
     res.json({ success: true, data: result.rows[0] });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
