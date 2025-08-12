@@ -495,12 +495,19 @@ export const assignVoucherByPhone = async (req, res) => {
       [userId, voucherId, false]
     );
 
+    // Trừ số lượng voucher tổng của hệ thống
+    await pool.query(
+      "UPDATE vouchers SET quantity = quantity - 1 WHERE voucherid = $1 AND quantity > 0",
+      [voucherId]
+    );
+
     res.json({ success: true, message: "Gán voucher thành công!" });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 };
 
+// Cập nhật trạng thái voucher của user
 export const updateUserVoucherStatus = async (req, res) => {
   const { uservoucherid, isused } = req.body;
   console.log(`[API] updateUserVoucherStatus called with: uservoucherid=${uservoucherid}, isused=${isused}`);
@@ -510,7 +517,6 @@ export const updateUserVoucherStatus = async (req, res) => {
   }
   try {
     const pool = await getPool();
-    let usedAtValue = isused ? 'NOW()' : 'NULL';
     const result = await pool.query(
       `UPDATE uservouchers SET isused = $1, usedat = (CASE WHEN $1 THEN NOW() ELSE NULL END) WHERE uservoucherid = $2 RETURNING *`,
       [isused, uservoucherid]
@@ -522,13 +528,12 @@ export const updateUserVoucherStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: "Không tìm thấy uservoucher" });
     }
 
+    // Trừ số lượng voucher của user khi sử dụng
     if (isused) {
-      const voucherId = result.rows[0].voucherid;
-      const updateQty = await pool.query(
-        `UPDATE vouchers SET Quantity  = Quantity  - 1 WHERE voucherid = $1 AND Quantity  > 0`,
-        [voucherId]
+      await pool.query(
+        `UPDATE uservouchers SET quantity = quantity - 1 WHERE uservoucherid = $1 AND quantity > 0`,
+        [uservoucherid]
       );
-      console.log(`[API] Update vouchers result:`, updateQty.rowCount);
     }
 
     res.json({ success: true, data: result.rows[0] });
