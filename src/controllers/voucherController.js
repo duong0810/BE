@@ -393,11 +393,11 @@ export const getUserVouchers = async (req, res) => {
     if (!userId) return res.json([]);
     const pool = await getPool();
     const vouchers = await pool.query(
-      `SELECT v.*, uv.assignedat AS "collectedAt"
-       FROM uservouchers uv
-       JOIN vouchers v ON uv.voucherid = v.voucherid
-       WHERE uv.userid = $1
-       ORDER BY uv.assignedat DESC`,
+      `SELECT v.*, uv.assignedat AS "collectedAt", uv.isused, uv.quantity
+      FROM uservouchers uv
+      JOIN vouchers v ON uv.voucherid = v.voucherid
+      WHERE uv.userid = $1
+      ORDER BY uv.assignedat DESC`,
       [userId]
     );
     res.json({ data: vouchers.rows });
