@@ -400,6 +400,15 @@ export const getUserVouchers = async (req, res) => {
       ORDER BY uv.assignedat DESC`,
       [userId]
     );
+    // Lấy lịch sử sử dụng cho từng voucher
+    const voucherRows = vouchers.rows;
+    for (let voucher of voucherRows) {
+      const usageResult = await pool.query(
+        `SELECT usedat FROM uservoucher_usages WHERE uservoucherid = $1 ORDER BY usedat ASC`,
+        [voucher.uservoucherid]
+      );
+      voucher.usedAtList = usageResult.rows.map(u => u.usedat);
+}
     res.json({ data: vouchers.rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -530,16 +539,21 @@ export const updateUserVoucherStatus = async (req, res) => {
     let quantity = check.rows[0].quantity;
 
     if (isused) {
-      if (quantity > 0) {
-        quantity -= 1;
-        // Nếu quantity về 0 thì đánh dấu đã dùng
-        await pool.query(
-          `UPDATE uservouchers SET quantity = $1, isused = $2, usedat = (CASE WHEN $2 THEN NOW() ELSE NULL END) WHERE uservoucherid = $3`,
-          [quantity, quantity === 0, uservoucherid]
-        );
-      } else {
-        return res.status(400).json({ success: false, message: "Voucher đã dùng hết!" });
-      }
+  if (quantity > 0) {
+    quantity -= 1;
+    await pool.query(
+      `UPDATE uservouchers SET quantity = $1, isused = $2, usedat = (CASE WHEN $2 THEN NOW() ELSE NULL END) WHERE uservoucherid = $3`,
+      [quantity, quantity === 0, uservoucherid]
+    );
+    // Thêm lịch sử sử dụng
+    await pool.query(
+      `INSERT INTO uservoucher_usages (uservoucherid, usedat) VALUES ($1, NOW())`,
+      [uservoucherid]
+    );
+  } else {
+    return res.status(400).json({ success: false, message: "Voucher đã dùng hết!" });
+  }
+
     } else {
       // Nếu bỏ check đã dùng, có thể cộng lại số lượng nếu muốn
       await pool.query(
