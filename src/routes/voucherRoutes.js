@@ -345,7 +345,7 @@ router.post("/assign", verifyZaloToken, zaloAuthMiddleware, async (req, res) => 
   }
 });
 
-// Thống kê chi tiết voucher đã thu thập theo từng user (admin)
+
 // Thống kê chi tiết voucher đã thu thập theo từng user (admin)
 router.get("/stats/collected-detail", authMiddleware, async (req, res) => {
   try {
@@ -362,8 +362,8 @@ router.get("/stats/collected-detail", authMiddleware, async (req, res) => {
         v.description,
         v.category,
         v.expirydate,
-        v.discount,         -- Thêm dòng này
-        v.quantity,         -- Thêm dòng này
+        v.discount,
+        uv.quantity,     
         uv.isused,
         uv.assignedat,
         uv.usedat
