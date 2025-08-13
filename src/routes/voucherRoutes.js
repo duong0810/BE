@@ -372,7 +372,32 @@ router.get("/stats/collected-detail", authMiddleware, async (req, res) => {
       LEFT JOIN vouchers v ON uv.voucherid = v.voucherid
       ORDER BY u.userid, uv.assignedat DESC
     `);
-    res.json(result.rows);
+
+    // Lấy danh sách uservoucherid
+    const userVoucherIds = result.rows.map(r => r.uservoucherid).filter(id => id);
+
+    // Truy vấn tất cả các lần sử dụng
+    let usages = [];
+    if (userVoucherIds.length > 0) {
+      const usageResult = await pool.query(
+        `SELECT uservoucherid, usedat FROM uservoucher_usages WHERE uservoucherid = ANY($1::int[]) ORDER BY usedat`,
+        [userVoucherIds]
+      );
+      usages = usageResult.rows;
+    }
+
+    // Map lại dữ liệu
+    const data = result.rows.map(row => {
+      const usedAtList = usages
+        .filter(u => u.uservoucherid === row.uservoucherid)
+        .map(u => u.usedat);
+      return {
+        ...row,
+        usedatlist: usedAtList
+      };
+    });
+
+    res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
