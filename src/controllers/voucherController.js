@@ -456,7 +456,7 @@ function formatPhoneNumber(phone) {
 // gán voucher vào 1 sdt bất kỳ - 11/08/2025 //
 export const assignVoucherByPhone = async (req, res) => {
   try {
-    const { phone, voucherId } = req.body;
+    const { phone, voucherId, quantity = 1 } = req.body; // nhận thêm quantity
     const pool = await getPool();
 
     // Chuẩn hóa số điện thoại
@@ -486,19 +486,23 @@ export const assignVoucherByPhone = async (req, res) => {
       [userId, voucherId]
     );
     if (check.rows.length > 0) {
-      return res.status(400).json({ success: false, message: "User đã có voucher này" });
+      // Nếu đã có, cộng quantity
+      await pool.query(
+        "UPDATE uservouchers SET quantity = quantity + $1 WHERE userid = $2 AND voucherid = $3",
+        [quantity, userId, voucherId]
+      );
+    } else {
+      // Nếu chưa có, tạo mới với quantity
+      await pool.query(
+        "INSERT INTO uservouchers (userid, voucherid, isused, assignedat, quantity) VALUES ($1, $2, $3, NOW(), $4)",
+        [userId, voucherId, false, quantity]
+      );
     }
-
-    // Gán voucher cho user này
-    await pool.query(
-      "INSERT INTO uservouchers (userid, voucherid, isused, assignedat) VALUES ($1, $2, $3, NOW())",
-      [userId, voucherId, false]
-    );
 
     // Trừ số lượng voucher tổng của hệ thống
     await pool.query(
-      "UPDATE vouchers SET quantity = quantity - 1 WHERE voucherid = $1 AND quantity > 0",
-      [voucherId]
+      "UPDATE vouchers SET quantity = quantity - $1 WHERE voucherid = $2 AND quantity >= $1",
+      [quantity, voucherId]
     );
 
     res.json({ success: true, message: "Gán voucher thành công!" });
