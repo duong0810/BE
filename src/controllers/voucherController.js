@@ -510,35 +510,34 @@ export const assignVoucherByPhone = async (req, res) => {
 // Cập nhật trạng thái voucher của user
 export const updateUserVoucherStatus = async (req, res) => {
   const { uservoucherid, isused } = req.body;
-  console.log(`[API] updateUserVoucherStatus called with: uservoucherid=${uservoucherid}, isused=${isused}`);
   if (!uservoucherid || typeof isused !== "boolean") {
-    console.error("[API] Missing uservoucherid or isused");
     return res.status(400).json({ success: false, message: "Thiếu uservoucherid hoặc isused" });
   }
   try {
     const pool = await getPool();
-    const result = await pool.query(
-      `UPDATE uservouchers SET isused = $1, usedat = (CASE WHEN $1 THEN NOW() ELSE NULL END) WHERE uservoucherid = $2 RETURNING *`,
-      [isused, uservoucherid]
+    // Lấy quantity hiện tại
+    const check = await pool.query(
+      `SELECT quantity FROM uservouchers WHERE uservoucherid = $1`,
+      [uservoucherid]
     );
-    console.log(`[API] Update uservouchers result:`, result.rows);
-
-    if (result.rows.length === 0) {
-      console.error("[API] Không tìm thấy uservoucher");
+    if (check.rows.length === 0) {
       return res.status(404).json({ success: false, message: "Không tìm thấy uservoucher" });
     }
-
-    // Trừ số lượng voucher của user khi sử dụng
-    if (isused) {
+    let quantity = check.rows[0].quantity;
+    if (isused && quantity > 0) {
+      quantity -= 1;
       await pool.query(
-        `UPDATE uservouchers SET quantity = quantity - 1 WHERE uservoucherid = $1 AND quantity > 0`,
+        `UPDATE uservouchers SET quantity = $1, isused = $2, usedat = (CASE WHEN $2 THEN NOW() ELSE NULL END) WHERE uservoucherid = $3`,
+        [quantity, quantity === 0, uservoucherid]
+      );
+    } else if (!isused) {
+      await pool.query(
+        `UPDATE uservouchers SET isused = false, usedat = NULL WHERE uservoucherid = $1`,
         [uservoucherid]
       );
     }
-
-    res.json({ success: true, data: result.rows[0] });
+    res.json({ success: true });
   } catch (err) {
-    console.error("[API] Error:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 };
