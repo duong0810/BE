@@ -343,7 +343,8 @@ export const confirmSpinVoucher = async (req, res) => {
       });
       accumulator += prob;
     });
-
+    console.log("Received randomValue:", randomValue);
+    console.log("Ranges:", ranges);
     // Tìm lại winner dựa trên randomValue
     const winner = ranges.find(range => 
       randomValue >= range.start && randomValue < range.end
