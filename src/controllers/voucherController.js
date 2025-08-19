@@ -321,6 +321,16 @@ export const spinVoucher = async (req, res) => {
   }
 };
 
+// Hàm lấy danh sách voucher loại "wheel" từ database
+async function getWheelVouchersFromDB() {
+  const pool = await getPool();
+  const result = await pool.query(`
+    SELECT * FROM Vouchers 
+    WHERE IsActive = true AND Probability IS NOT NULL AND Probability > 0 AND Category = 'wheel'
+    ORDER BY CreatedAt ASC
+  `);
+  return result.rows;
+}
 export const confirmSpinVoucher = async (req, res) => {
   try {
     const { randomValue } = req.body;
