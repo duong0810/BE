@@ -195,6 +195,68 @@ function generateVoucherCode(length = 7) {
   return code;
 }
 
+// Lấy các dòng chữ banner
+export const getBannerHeaders = async (req, res) => {
+  try {
+    const pool = await getPool();
+    const result = await pool.query(
+      "SELECT key, value FROM Settings WHERE key IN ('header1', 'header2', 'header3')"
+    );
+    
+    const headers = {};
+    result.rows.forEach(row => {
+      headers[row.key] = row.value;
+    });
+    
+    res.json({ 
+      success: true, 
+      data: {
+        header1: headers.header1 || '',
+        header2: headers.header2 || '',
+        header3: headers.header3 || ''
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Cập nhật các dòng chữ banner
+export const updateBannerHeaders = async (req, res) => {
+  const { header1, header2, header3 } = req.body;
+  
+  try {
+    const pool = await getPool();
+    
+    // Function helper để upsert
+    const upsertHeader = async (key, value) => {
+      if (value !== undefined) {
+        await pool.query(`
+          INSERT INTO Settings (key, value) VALUES ($1, $2)
+          ON CONFLICT (key) DO UPDATE SET value = $2
+        `, [key, value]);
+      }
+    };
+    
+    // Cập nhật từng header
+    await upsertHeader('header1', header1);
+    await upsertHeader('header2', header2);
+    await upsertHeader('header3', header3);
+    
+    res.json({ 
+      success: true, 
+      message: "Banner headers updated successfully"
+    });
+  } catch (err) {
+    console.error("❌ Error updating banner headers:", err);
+    res.status(500).json({ 
+      success: false, 
+      error: err.message 
+    });
+  }
+};
+
 // Hàm quay random voucher theo xác suất
 export const spinVoucher = async (req, res) => {
   try {   
@@ -259,66 +321,41 @@ export const spinVoucher = async (req, res) => {
   }
 };
 
-
-// Lấy các dòng chữ banner
-export const getBannerHeaders = async (req, res) => {
+export const confirmSpinVoucher = async (req, res) => {
   try {
-    const pool = await getPool();
-    const result = await pool.query(
-      "SELECT key, value FROM Settings WHERE key IN ('header1', 'header2', 'header3')"
+    const { randomValue } = req.body;
+    const vouchers = await getWheelVouchersFromDB();
+
+    const totalProb = vouchers.reduce((sum, v) => sum + Number(v.probability), 0);
+    if (totalProb === 0) {
+      return res.status(404).json({ message: "No voucher available" });
+    }
+
+    const ranges = [];
+    let accumulator = 0;
+    vouchers.forEach(voucher => {
+      const prob = Number(voucher.probability);
+      ranges.push({
+        voucher: voucher,
+        start: accumulator,
+        end: accumulator + prob,
+        probability: prob
+      });
+      accumulator += prob;
+    });
+
+    // Tìm lại winner dựa trên randomValue
+    const winner = ranges.find(range => 
+      randomValue >= range.start && randomValue < range.end
     );
-    
-    const headers = {};
-    result.rows.forEach(row => {
-      headers[row.key] = row.value;
-    });
-    
-    res.json({ 
-      success: true, 
-      data: {
-        header1: headers.header1 || '',
-        header2: headers.header2 || '',
-        header3: headers.header3 || ''
-      }
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
-};
 
-// Cập nhật các dòng chữ banner
-export const updateBannerHeaders = async (req, res) => {
-  const { header1, header2, header3 } = req.body;
-  
-  try {
-    const pool = await getPool();
-    
-    // Function helper để upsert
-    const upsertHeader = async (key, value) => {
-      if (value !== undefined) {
-        await pool.query(`
-          INSERT INTO Settings (key, value) VALUES ($1, $2)
-          ON CONFLICT (key) DO UPDATE SET value = $2
-        `, [key, value]);
-      }
-    };
-    
-    // Cập nhật từng header
-    await upsertHeader('header1', header1);
-    await upsertHeader('header2', header2);
-    await upsertHeader('header3', header3);
-    
-    res.json({ 
-      success: true, 
-      message: "Banner headers updated successfully"
-    });
+    if (winner) {
+      return res.json({ voucher: winner.voucher });
+    }
+
+    res.json({ voucher: null });
   } catch (err) {
-    console.error("❌ Error updating banner headers:", err);
-    res.status(500).json({ 
-      success: false, 
-      error: err.message 
-    });
+    res.status(500).json({ error: err.message });
   }
 };
 

@@ -18,13 +18,14 @@ import { updateWheelConfig } from "../controllers/voucherController.js";
 import { authMiddleware, adminMiddleware } from "../middlewares/auth.js";
 import { assignVoucherByPhone } from "../controllers/voucherController.js";// 11/08/2025
 import { updateUserVoucherStatus } from "../controllers/voucherController.js"; // 12/08
-
+import { confirmSpinVoucher } from "../controllers/voucherController.js";
 const upload = multer({ dest: "uploads/" });
 
 const router = express.Router();
 
 router.get("/spin", spinVoucher);
-
+// xác nhận lại kết quả vòng quay
+router.post('/confirm-spin', confirmSpinVoucher);
 // Route quay vòng với giới hạn
 router.post("/spin-wheel-limit", verifyZaloToken, zaloAuthMiddleware, spinWheelWithLimit);
 
@@ -474,6 +475,8 @@ router.post("/assign-by-phone", authMiddleware, adminMiddleware, assignVoucherBy
 
 // routes cập nhật trạng thái sử dụng voucher
 router.put("/uservoucher/update-status", authMiddleware, updateUserVoucherStatus);
+
+
 
 // ĐẶT CÁC ROUTE ĐỘNG Ở CUỐI FILE
 router.get("/", getAllVouchers);
