@@ -331,6 +331,7 @@ async function getWheelVouchersFromDB() {
   `);
   return result.rows;
 }
+
 export const confirmSpinVoucher = async (req, res) => {
   try {
     const { randomValue } = req.body;
@@ -361,7 +362,7 @@ export const confirmSpinVoucher = async (req, res) => {
     );
 
     if (winner) {
-      return res.json({ voucher: winner.voucher });
+      return res.json({ voucher: winner.voucher, randomValue: randomValue });
     }
 
     res.json({ voucher: null });
