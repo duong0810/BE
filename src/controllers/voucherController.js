@@ -310,7 +310,7 @@ export const spinVoucher = async (req, res) => {
 
     if (winner) {
       console.log(`🏆 WINNER: ${winner.voucher.code}`);
-      return res.json({ voucher: winner.voucher });
+      return res.json({ voucher: winner.voucher, randomValue }); // Trả về randomValue cho FE
     }
 
     console.log("❌ No winner found");
