@@ -325,11 +325,11 @@ export const spinVoucher = async (req, res) => {
 async function getWheelVouchersFromDB() {
   const pool = await getPool();
   const result = await pool.query(`
-    SELECT * FROM Vouchers 
-    WHERE IsActive = true AND Probability IS NOT NULL AND Probability > 0 AND Category = 'wheel'
-    ORDER BY CreatedAt ASC
-  `);
-  return result.rows;
+      SELECT * FROM Vouchers 
+      WHERE IsActive = true AND Probability IS NOT NULL AND Probability > 0
+      ORDER BY RANDOM()
+    `);
+    const vouchers = result.rows;
 }
 
 export const confirmSpinVoucher = async (req, res) => {
