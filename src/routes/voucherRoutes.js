@@ -476,6 +476,17 @@ router.post("/assign-by-phone", authMiddleware, adminMiddleware, assignVoucherBy
 // routes cập nhật trạng thái sử dụng voucher
 router.put("/uservoucher/update-status", authMiddleware, updateUserVoucherStatus);
 
+// API lấy danh sách phần thưởng đã quay
+router.get("/prize-winners", async (req, res) => {
+  try {
+    const pool = await getPool();
+    const result = await pool.query("SELECT * FROM prize_winners ORDER BY received_time DESC");
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 
 // ĐẶT CÁC ROUTE ĐỘNG Ở CUỐI FILE
