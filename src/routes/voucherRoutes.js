@@ -487,6 +487,36 @@ router.get("/prize-winners", async (req, res) => {
   }
 });
 
+router.post("/prize-winners", async (req, res) => {
+  try {
+    const pool = await getPool();
+    const winner = req.body;
+
+    // Ví dụ: các trường cần lưu, bạn chỉnh lại cho đúng với cấu trúc dữ liệu
+    const query = `
+      INSERT INTO prize_winners 
+      (customer_name, phone, invoice_number, code, description, received_time, quantity_per_draw, note)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `;
+    const values = [
+      winner.CustomerName,
+      winner.Phone,
+      winner.InvoiceNumber,
+      winner.Code,
+      winner.Description,
+      winner.ReceivedTime,
+      winner.QuantityPerDraw,
+      winner.Note
+    ];
+
+    const result = await pool.query(query, values);
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 
 
 // ĐẶT CÁC ROUTE ĐỘNG Ở CUỐI FILE
