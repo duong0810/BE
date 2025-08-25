@@ -492,31 +492,58 @@ router.post("/prize-winners", async (req, res) => {
     const pool = await getPool();
     const winner = req.body;
 
-    // Ví dụ: các trường cần lưu, bạn chỉnh lại cho đúng với cấu trúc dữ liệu
-    const query = `
-      INSERT INTO prize_winners 
-      (customer_name, phone, invoice_number, code, description, received_time, quantity_per_draw, note)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING *
-    `;
-    const values = [
-      winner.customer_name,
-      winner.phone,
-      winner.invoice_number,
-      winner.code,
-      winner.description,
-      winner.received_time,
-      winner.quantity_per_draw,
-      winner.note
-    ];
+    // 1. Kiểm tra số lượng voucher còn lại
+    const voucherRes = await pool.query(
+      'SELECT quantity FROM vouchers WHERE code = $1',
+      [winner.code]
+    );
+    if (!voucherRes.rows.length || voucherRes.rows[0].quantity <= 0) {
+      return res.status(400).json({ success: false, message: 'Voucher đã hết!' });
+    }
 
-    const result = await pool.query(query, values);
-    res.json({ success: true, data: result.rows[0] });
+    // 2. Trừ số lượng voucher đi 1
+      const checkRes = await pool.query(
+    `SELECT id, quantity_per_draw FROM prize_winners
+    WHERE phone = $1 AND invoice_number = $2 AND code = $3`,
+    [winner.phone, winner.invoice_number, winner.code]
+  );
+
+  if (checkRes.rows.length > 0) {
+    // Đã có, thì UPDATE cộng dồn số lượng
+    const oldQty = checkRes.rows[0].quantity_per_draw || 0;
+    await pool.query(
+      `UPDATE prize_winners SET quantity_per_draw = $1, received_time = $2
+      WHERE id = $3`,
+      [oldQty + (winner.quantity_per_draw || 1), winner.received_time, checkRes.rows[0].id]
+    );
+  // Trả về kết quả đã update
+    return res.json({ success: true, updated: true });
+  } else {
+  // Chưa có, thì INSERT mới như bình thường
+  const query = `
+    INSERT INTO prize_winners 
+    (customer_name, phone, invoice_number, code, description, received_time, quantity_per_draw, note)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    RETURNING *
+  `;
+  const values = [
+    winner.customer_name,
+    winner.phone,
+    winner.invoice_number,
+    winner.code,
+    winner.description,
+    winner.received_time,
+    winner.quantity_per_draw,
+    winner.note
+  ];
+
+        const result = await pool.query(query, values);
+      return res.json({ success: true, data: result.rows[0] });
+    }
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
-
 
 
 // ĐẶT CÁC ROUTE ĐỘNG Ở CUỐI FILE
