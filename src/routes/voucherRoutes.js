@@ -500,14 +500,14 @@ router.post("/prize-winners", async (req, res) => {
       RETURNING *
     `;
     const values = [
-      winner.CustomerName,
-      winner.Phone,
-      winner.InvoiceNumber,
-      winner.Code,
-      winner.Description,
-      winner.ReceivedTime,
-      winner.QuantityPerDraw,
-      winner.Note
+      winner.customer_name,
+      winner.phone,
+      winner.invoice_number,
+      winner.code,
+      winner.description,
+      winner.received_time,
+      winner.quantity_per_draw,
+      winner.note
     ];
 
     const result = await pool.query(query, values);
