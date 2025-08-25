@@ -516,34 +516,34 @@ router.post("/prize-winners", async (req, res) => {
       WHERE id = $3`,
       [oldQty + (winner.quantity_per_draw || 1), winner.received_time, checkRes.rows[0].id]
     );
-  // Trả về kết quả đã update
+    // Trả về kết quả đã update
     return res.json({ success: true, updated: true });
   } else {
-  // Chưa có, thì INSERT mới như bình thường
-  const query = `
-    INSERT INTO prize_winners 
-    (customer_name, phone, invoice_number, code, description, received_time, quantity_per_draw, note)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    RETURNING *
-  `;
-  const values = [
-    winner.customer_name,
-    winner.phone,
-    winner.invoice_number,
-    winner.code,
-    winner.description,
-    winner.received_time,
-    winner.quantity_per_draw,
-    winner.note
-  ];
+    // Chưa có, thì INSERT mới như bình thường
+    const query = `
+      INSERT INTO prize_winners 
+      (customer_name, phone, invoice_number, code, description, received_time, quantity_per_draw, note)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `;
+    const values = [
+      winner.customer_name,
+      winner.phone,
+      winner.invoice_number,
+      winner.code,
+      winner.description,
+      winner.received_time,
+      winner.quantity_per_draw,
+      winner.note
+    ];
 
-        const result = await pool.query(query, values);
-      return res.json({ success: true, data: result.rows[0] });
+    const result = await pool.query(query, values);
+    return res.json({ success: true, data: result.rows[0] });
     }
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
+    } catch (err) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  });
 
 
 // ĐẶT CÁC ROUTE ĐỘNG Ở CUỐI FILE
