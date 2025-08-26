@@ -545,6 +545,53 @@ router.post("/prize-winners", async (req, res) => {
     }
   });
 
+// PUT /prize-winners/:id/quantity
+router.put("/prize-winners/:id/quantity", async (req, res) => {
+  try {
+    const pool = await getPool();
+    const id = req.params.id;
+    const { quantity_per_draw } = req.body;
+
+    if (typeof quantity_per_draw !== "number" || quantity_per_draw < 0) {
+      return res.status(400).json({ success: false, message: "Số lượng không hợp lệ!" });
+    }
+
+    // Cập nhật số lượng trúng thưởng
+    const result = await pool.query(
+      "UPDATE prize_winners SET quantity_per_draw = $1 WHERE id = $2 RETURNING *",
+      [quantity_per_draw, id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, message: "Không tìm thấy bản ghi!" });
+    }
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// DELETE /api/prize-winners/:id
+router.delete("/prize-winners/:id", async (req, res) => {
+  try {
+    const pool = await getPool();
+    const id = req.params.id;
+
+    const result = await pool.query(
+      "DELETE FROM prize_winners WHERE id = $1 RETURNING *",
+      [id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, message: "Không tìm thấy bản ghi để xoá!" });
+    }
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 // ĐẶT CÁC ROUTE ĐỘNG Ở CUỐI FILE
 router.get("/", getAllVouchers);
