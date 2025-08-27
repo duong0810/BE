@@ -18,13 +18,14 @@ import { updateWheelConfig } from "../controllers/voucherController.js";
 import { authMiddleware, adminMiddleware } from "../middlewares/auth.js";
 import { assignVoucherByPhone } from "../controllers/voucherController.js";// 11/08/2025
 import { updateUserVoucherStatus } from "../controllers/voucherController.js"; // 12/08
-
+import { confirmSpinVoucher } from "../controllers/voucherController.js";
 const upload = multer({ dest: "uploads/" });
 
 const router = express.Router();
 
 router.get("/spin", spinVoucher);
-
+// xác nhận lại kết quả vòng quay
+router.post('/confirm-spin', confirmSpinVoucher);
 // Route quay vòng với giới hạn
 router.post("/spin-wheel-limit", verifyZaloToken, zaloAuthMiddleware, spinWheelWithLimit);
 
@@ -474,6 +475,123 @@ router.post("/assign-by-phone", authMiddleware, adminMiddleware, assignVoucherBy
 
 // routes cập nhật trạng thái sử dụng voucher
 router.put("/uservoucher/update-status", authMiddleware, updateUserVoucherStatus);
+
+// API lấy danh sách phần thưởng đã quay
+router.get("/prize-winners", async (req, res) => {
+  try {
+    const pool = await getPool();
+    const result = await pool.query("SELECT * FROM prize_winners ORDER BY received_time DESC");
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/prize-winners", async (req, res) => {
+  try {
+    const pool = await getPool();
+    const winner = req.body;
+
+    // 1. Kiểm tra số lượng voucher còn lại
+    const voucherRes = await pool.query(
+      'SELECT quantity FROM vouchers WHERE code = $1',
+      [winner.code]
+    );
+    if (!voucherRes.rows.length || voucherRes.rows[0].quantity <= 0) {
+      return res.status(400).json({ success: false, message: 'Voucher đã hết!' });
+    }
+
+    // 2. Trừ số lượng voucher đi 1
+      const checkRes = await pool.query(
+    `SELECT id, quantity_per_draw FROM prize_winners
+    WHERE phone = $1 AND invoice_number = $2 AND code = $3`,
+    [winner.phone, winner.invoice_number, winner.code]
+  );
+
+  if (checkRes.rows.length > 0) {
+    // Đã có, thì UPDATE cộng dồn số lượng
+    const oldQty = checkRes.rows[0].quantity_per_draw || 0;
+    await pool.query(
+      `UPDATE prize_winners SET quantity_per_draw = $1, received_time = $2
+      WHERE id = $3`,
+      [oldQty + (winner.quantity_per_draw || 1), winner.received_time, checkRes.rows[0].id]
+    );
+    // Trả về kết quả đã update
+    return res.json({ success: true, updated: true });
+  } else {
+    // Chưa có, thì INSERT mới như bình thường
+    const query = `
+      INSERT INTO prize_winners 
+      (customer_name, phone, invoice_number, code, description, received_time, quantity_per_draw, note)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `;
+    const values = [
+      winner.customer_name,
+      winner.phone,
+      winner.invoice_number,
+      winner.code,
+      winner.description,
+      winner.received_time,
+      winner.quantity_per_draw,
+      winner.note
+    ];
+
+    const result = await pool.query(query, values);
+    return res.json({ success: true, data: result.rows[0] });
+    }
+    } catch (err) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+// PUT /prize-winners/:id/quantity
+router.put("/prize-winners/:id/quantity", async (req, res) => {
+  try {
+    const pool = await getPool();
+    const id = req.params.id;
+    const { quantity_per_draw } = req.body;
+
+    if (typeof quantity_per_draw !== "number" || quantity_per_draw < 0) {
+      return res.status(400).json({ success: false, message: "Số lượng không hợp lệ!" });
+    }
+
+    // Cập nhật số lượng trúng thưởng
+    const result = await pool.query(
+      "UPDATE prize_winners SET quantity_per_draw = $1 WHERE id = $2 RETURNING *",
+      [quantity_per_draw, id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, message: "Không tìm thấy bản ghi!" });
+    }
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// DELETE /api/prize-winners/:id
+router.delete("/prize-winners/:id", async (req, res) => {
+  try {
+    const pool = await getPool();
+    const id = req.params.id;
+
+    const result = await pool.query(
+      "DELETE FROM prize_winners WHERE id = $1 RETURNING *",
+      [id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, message: "Không tìm thấy bản ghi để xoá!" });
+    }
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 // ĐẶT CÁC ROUTE ĐỘNG Ở CUỐI FILE
 router.get("/", getAllVouchers);
