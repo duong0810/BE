@@ -622,14 +622,18 @@ router.get("/user-voucher-history", async (req, res) => {
     const pool = await getPool();
     const { phone } = req.query;
 
-    if (!phone) {
-      return res.status(400).json({ success: false, message: "Thiếu số điện thoại!" });
+    let result;
+    if (phone) {
+      result = await pool.query(
+        "SELECT * FROM user_voucher_history WHERE phone = $1 ORDER BY action_time DESC",
+        [phone]
+      );
+    } else {
+      // Nếu không truyền phone, trả về tất cả lịch sử
+      result = await pool.query(
+        "SELECT * FROM user_voucher_history ORDER BY action_time DESC"
+      );
     }
-
-    const result = await pool.query(
-      "SELECT * FROM user_voucher_history WHERE phone = $1 ORDER BY action_time DESC",
-      [phone]
-    );
 
     res.json({ success: true, data: result.rows });
   } catch (err) {
