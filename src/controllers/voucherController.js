@@ -62,11 +62,23 @@ export const createVoucher = async (req, res) => {
       Quantity,
       Probability
     } = req.body;
-    
+
     const Code = generateVoucherCode(7);
     const Image = req.file ? `/uploads/${req.file.filename}` : req.body.Image || null;
 
     const pool = await getPool();
+
+    // Kiểm tra tổng xác suất nếu là voucher vòng quay
+    if (Category === 'wheel' && Probability) {
+      const result = await pool.query(
+        "SELECT SUM(Probability) AS total FROM Vouchers WHERE Category = 'wheel' AND IsActive = true"
+      );
+      const currentTotal = Number(result.rows[0].total) || 0;
+      if (currentTotal + Number(Probability) > 100) {
+        return res.status(400).json({ error: "Tổng xác suất các voucher vòng quay vượt quá 100%" });
+      }
+    }
+
     await pool.query(`
       INSERT INTO Vouchers (VoucherID, Code, Description, Discount, Type, Quantity, MinOrder, MaxDiscount, ExpiryDate, IsActive, Category, Probability, Image)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
@@ -109,7 +121,7 @@ export const updateVoucher = async (req, res) => {
 
   try {
     const pool = await getPool();
-    
+
     // Lấy voucher hiện tại
     const oldVoucherResult = await pool.query(
       "SELECT * FROM Vouchers WHERE VoucherID = $1 OR Code = $1",
@@ -134,6 +146,19 @@ export const updateVoucher = async (req, res) => {
         ? Image : oldVoucher.image;
     const newCategory = (Category !== undefined && Category !== "" && Category !== null)
       ? Category : oldVoucher.category;
+
+    // Kiểm tra tổng xác suất nếu là voucher vòng quay
+    if (newCategory === 'wheel' && newProbability) {
+      // Trừ xác suất cũ, cộng xác suất mới
+      const result = await pool.query(
+        "SELECT SUM(Probability) AS total FROM Vouchers WHERE Category = 'wheel' AND IsActive = true AND VoucherID != $1",
+        [id]
+      );
+      const currentTotal = Number(result.rows[0].total) || 0;
+      if (currentTotal + Number(newProbability) > 100) {
+        return res.status(400).json({ error: "Tổng xác suất các voucher vòng quay vượt quá 100%" });
+      }
+    }
 
     const result = await pool.query(`
       UPDATE Vouchers
@@ -257,12 +282,10 @@ export const updateBannerHeaders = async (req, res) => {
   }
 };
 
-// Hàm quay random voucher theo xác suất
+// Hàm quay random voucher theo xác suất (chuẩn hóa tổng xác suất = 100)
 export const spinVoucher = async (req, res) => {
   try {   
     const pool = await getPool();
-    
-    // Lấy voucher với ORDER BY RANDOM() để random thứ tự (PostgreSQL)
     const result = await pool.query(`
       SELECT * FROM Vouchers 
       WHERE IsActive = true AND Probability IS NOT NULL AND Probability > 0 AND Category = 'wheel'
@@ -274,22 +297,23 @@ export const spinVoucher = async (req, res) => {
       return res.status(404).json({ message: "No voucher available" });
     }
 
-    // Tính tổng xác suất
+    // Tính tổng xác suất gốc
     const totalProb = vouchers.reduce((sum, v) => sum + Number(v.probability), 0);
     if (totalProb === 0) {
       return res.status(404).json({ message: "No voucher available" });
     }
 
-    console.log("📊 SPIN DEBUG INFO:");
-    console.log("Total vouchers:", vouchers.length);
-    console.log("Total probability:", totalProb);
-    
-    // Tạo ranges chính xác
+    // Chuẩn hóa xác suất về tổng 100
+    const normalizedVouchers = vouchers.map(v => ({
+      ...v,
+      normalizedProbability: Number(v.probability) * 100 / totalProb
+    }));
+
+    // Tạo ranges
     const ranges = [];
     let accumulator = 0;
-    
-    vouchers.forEach(voucher => {
-      const prob = Number(voucher.probability);
+    normalizedVouchers.forEach(voucher => {
+      const prob = voucher.normalizedProbability;
       ranges.push({
         voucher: voucher,
         start: accumulator,
@@ -299,9 +323,8 @@ export const spinVoucher = async (req, res) => {
       accumulator += prob;
     });
 
-    // Random value
-    const randomValue = Math.random() * totalProb;
-    console.log(`🎲 Random value: ${randomValue} (out of ${totalProb})`);
+    // Random value từ 0 đến 100
+    const randomValue = Math.random() * 100;
 
     // Tìm winner
     const winner = ranges.find(range => 
@@ -309,14 +332,11 @@ export const spinVoucher = async (req, res) => {
     );
 
     if (winner) {
-      console.log(`🏆 WINNER: ${winner.voucher.code}`);
-      return res.json({ voucher: winner.voucher, randomValue }); // Trả về randomValue cho FE
+      return res.json({ voucher: winner.voucher, randomValue });
     }
 
-    console.log("❌ No winner found");
     res.json({ voucher: null });
   } catch (err) {
-    console.error("Error in spin:", err);
     res.status(500).json({ error: err.message });
   }
 };
