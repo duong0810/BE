@@ -593,6 +593,54 @@ router.delete("/prize-winners/:id", async (req, res) => {
   }
 });
 
+
+// POST /api/user-voucher-history --voucher vòng quay sau khi đẩy lên mini app hoặc dùng tại chổ
+router.post("/user-voucher-history", async (req, res) => {
+  try {
+    const pool = await getPool();
+    const { phone, voucher_code, action_type, note } = req.body;
+
+    if (!phone || !voucher_code || !action_type) {
+      return res.status(400).json({ success: false, message: "Thiếu dữ liệu!" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO user_voucher_history (phone, voucher_code, action_type, note)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [phone, voucher_code, action_type, note]
+    );
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET /api/user-voucher-history?phone=xxx
+router.get("/user-voucher-history", async (req, res) => {
+  try {
+    const pool = await getPool();
+    const { phone } = req.query;
+
+    let result;
+    if (phone) {
+      result = await pool.query(
+        "SELECT * FROM user_voucher_history WHERE phone = $1 ORDER BY action_time DESC",
+        [phone]
+      );
+    } else {
+      // Nếu không truyền phone, trả về tất cả lịch sử
+      result = await pool.query(
+        "SELECT * FROM user_voucher_history ORDER BY action_time DESC"
+      );
+    }
+
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ĐẶT CÁC ROUTE ĐỘNG Ở CUỐI FILE
 router.get("/", getAllVouchers);
 router.get("/:id", findVoucher);
