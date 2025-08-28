@@ -598,16 +598,16 @@ router.delete("/prize-winners/:id", async (req, res) => {
 router.post("/user-voucher-history", async (req, res) => {
   try {
     const pool = await getPool();
-    const { phone, voucher_code, action_type, note } = req.body;
+    const { phone, voucher_code, action_type, note, customer_name } = req.body;
 
     if (!phone || !voucher_code || !action_type) {
       return res.status(400).json({ success: false, message: "Thiếu dữ liệu!" });
     }
 
     const result = await pool.query(
-      `INSERT INTO user_voucher_history (phone, voucher_code, action_type, note)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [phone, voucher_code, action_type, note]
+      `INSERT INTO user_voucher_history (phone, voucher_code, action_type, note, customer_name)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [phone, voucher_code, action_type, note, customer_name]
     );
 
     res.json({ success: true, data: result.rows[0] });
@@ -629,7 +629,6 @@ router.get("/user-voucher-history", async (req, res) => {
         [phone]
       );
     } else {
-      // Nếu không truyền phone, trả về tất cả lịch sử
       result = await pool.query(
         "SELECT * FROM user_voucher_history ORDER BY action_time DESC"
       );
