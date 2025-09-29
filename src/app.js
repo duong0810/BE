@@ -26,9 +26,9 @@ const app = express();
 // CORS configuration - MUST BE FIRST
 app.use(cors({
   origin: [
-    'https://be-sgv1.onrender.com',
+    'https://be-bus4.onrender.com',
     'https://h5.zdn.vn',
-    'https://fe-gwkb.onrender.com', 
+    'https://fe-tf8p.onrender.com', 
     'http://localhost:3000',
     'http://localhost:2999',
     'http://localhost:3001',
