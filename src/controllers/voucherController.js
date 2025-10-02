@@ -534,13 +534,11 @@ function formatPhoneNumber(phone) {
 // gán voucher vào 1 sdt bất kỳ - 11/08/2025 //
 export const assignVoucherByPhone = async (req, res) => {
   try {
-    const { phone, voucherId, quantity = 1 } = req.body; // nhận thêm quantity
+    const { phone, voucherId, quantity = 1, namecustomer } = req.body;
     const pool = await getPool();
-
-    // Chuẩn hóa số điện thoại
     const cleanPhone = formatPhoneNumber(phone);
 
-    // Tìm user theo số điện thoại đã chuẩn hóa
+    // Tìm user
     let userResult = await pool.query(
       "SELECT * FROM users WHERE phone = $1",
       [cleanPhone]
@@ -548,14 +546,19 @@ export const assignVoucherByPhone = async (req, res) => {
 
     let userId;
     if (userResult.rows.length === 0) {
-      // Nếu chưa có user, tạo mới user với số điện thoại này
+      // Tạo mới user với tên khách hàng
       const newUser = await pool.query(
-        "INSERT INTO users (phone, username, createdat) VALUES ($1, $2, NOW()) RETURNING userid",
-        [cleanPhone, cleanPhone]
+        "INSERT INTO users (phone, username, createdat, namecustomer) VALUES ($1, $2, NOW(), $3) RETURNING userid",
+        [cleanPhone, cleanPhone, namecustomer]
       );
       userId = newUser.rows[0].userid;
     } else {
       userId = userResult.rows[0].userid;
+      // Cập nhật tên khách hàng nếu cần
+      await pool.query(
+        "UPDATE users SET namecustomer = $1 WHERE userid = $2",
+        [namecustomer, userId]
+      );
     }
 
     // Kiểm tra đã gán voucher này cho user chưa
@@ -564,16 +567,16 @@ export const assignVoucherByPhone = async (req, res) => {
       [userId, voucherId]
     );
     if (check.rows.length > 0) {
-      // Nếu đã có, cộng quantity
+      // Nếu đã có, cộng quantity và cập nhật tên khách hàng
       await pool.query(
-        "UPDATE uservouchers SET quantity = quantity + $1 WHERE userid = $2 AND voucherid = $3",
-        [quantity, userId, voucherId]
+        "UPDATE uservouchers SET quantity = quantity + $1, namecustomer = $2 WHERE userid = $3 AND voucherid = $4",
+        [quantity, namecustomer, userId, voucherId]
       );
     } else {
-      // Nếu chưa có, tạo mới với quantity
+      // Nếu chưa có, tạo mới với quantity và tên khách hàng
       await pool.query(
-        "INSERT INTO uservouchers (userid, voucherid, isused, assignedat, quantity) VALUES ($1, $2, $3, NOW(), $4)",
-        [userId, voucherId, false, quantity]
+        "INSERT INTO uservouchers (userid, voucherid, isused, assignedat, quantity, namecustomer) VALUES ($1, $2, $3, NOW(), $4, $5)",
+        [userId, voucherId, false, quantity, namecustomer]
       );
     }
 

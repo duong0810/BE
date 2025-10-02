@@ -30,7 +30,7 @@ class ZaloAPI {
         params: {
           access_token: accessToken,
           fields: 'id,name,picture,birthday,gender'
-        }
+        } 
       });
       
       return response.data;
@@ -39,7 +39,7 @@ class ZaloAPI {
       throw error;
     }
   }
-
+  
   // Lấy số điện thoại (cần permission đặc biệt)
   async getUserPhone(accessToken) {
     try {
