@@ -540,7 +540,7 @@ export const assignVoucherByPhone = async (req, res) => {
 
     // Tìm user
     let userResult = await pool.query(
-      "SELECT * FROM users WHERE phone = $1",
+      "SELECT * FROM users WHERE phone = $1 OR username = $1",
       [cleanPhone]
     );
 
