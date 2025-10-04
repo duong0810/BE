@@ -3,7 +3,7 @@ import axios from 'axios';
 import ZaloAPI from '../utils/zaloApi.js';
 import { generateZaloToken, verifyZaloToken, zaloAuthMiddleware } from '../middlewares/zaloAuth.js';
 import { getPool } from '../config.js';
-import { getAccessToken } from '../controllers/zaloController.js';
+import { getValidAccessToken } from '../controllers/zaloController.js';
 
 const router = express.Router();
 
@@ -183,6 +183,6 @@ router.put('/update', verifyZaloToken, zaloAuthMiddleware, async (req, res) => {
   }
 });
 
-router.get('/access-token', getAccessToken);
+router.get('/access-token', getValidAccessToken);
 
 export default router;
