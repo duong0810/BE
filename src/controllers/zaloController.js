@@ -12,7 +12,11 @@ export async function getValidAccessToken(req, res) {
       await updateTokenInfo(refreshed.accessToken, refreshed.refreshToken, refreshed.expireAt);
       tokenInfo = await getTokenInfo(); // lấy lại token mới nhất
     }
-    res.json({ accessToken: tokenInfo.AccessToken });
+    // Trả về cả accessToken và refreshToken
+    res.json({
+      accessToken: tokenInfo.AccessToken,
+      refreshToken: tokenInfo.RefreshToken
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
